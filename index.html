@@ -3,20 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>meter — Clockwork Dashboard</title>
+    <title>meter — Clockwork readout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="app">
-      <header class="app-header">
-        <div class="brand">
-          <h1>meter</h1>
-          <span class="tagline">Clockwork Dashboard</span>
+      <header class="masthead">
+        <div class="wordmark">
+          <span class="mark">meter</span>
+          <span class="sub">clockwork readout</span>
         </div>
-        <div id="summary" class="summary"></div>
+        <div class="masthead-right">
+          <div id="meta" class="meta"></div>
+          <div class="actions">
+            <button id="load" class="btn" type="button">Load .json</button>
+            <button id="reset" class="btn ghost" type="button" hidden>
+              Published data
+            </button>
+            <input
+              id="file-input"
+              type="file"
+              accept=".json,application/json"
+              hidden
+            />
+          </div>
+        </div>
       </header>
-      <main>
-        <div id="content"></div>
-      </main>
+      <section id="readout" class="readout" aria-live="polite"></section>
+      <main id="meter" class="panel"></main>
+    </div>
+    <div id="dropzone" class="dropzone" aria-hidden="true">
+      <div class="dropzone-inner">
+        <strong>Drop your clockwork export</strong>
+        <span>A .json file — read in your browser, never uploaded anywhere.</span>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -14,6 +14,10 @@ clockwork's `export` output (schema `clockwork/v1`); it does not contain the CLI
 2. **Commit** `data/clockwork-data.json` and push to `main`.
 3. GitHub Actions **builds** and **deploys** the static site to Pages.
 
+The deployed site shows the published data by default, but **anyone can also
+load their own export in the browser** — see [Load a file without
+deploying](#load-a-file-without-deploying).
+
 ---
 
 ## One-time setup
@@ -59,6 +63,23 @@ git push origin main
 
 Or trigger the **Deploy to GitHub Pages** workflow manually from the Actions tab
 (`workflow_dispatch`).
+
+## Load a file without deploying
+
+You don't have to deploy to view an export. On any running instance of the site
+(local or deployed), visitors can view their own clockwork data:
+
+- Click **Load .json** in the header and pick a file, **or**
+- **Drag a `.json` file anywhere onto the page.**
+
+The file is read **entirely in the browser** with the File API — it is **never
+uploaded to a server or to GitHub**. It replaces what's on screen for that
+session only; **Published data** returns to the deployed export. The same schema
+guard applies, so a non-`clockwork/v1` file shows a clear message instead of
+rendering.
+
+This makes the deployed site usable as a plain viewer: point people at it and
+they can inspect their own export without touching the repo.
 
 ## Base path
 
