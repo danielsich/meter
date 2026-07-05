@@ -2,9 +2,13 @@
  * Type definitions for the clockwork `export` command output.
  * Schema: clockwork/v1
  *
- * This dashboard only depends on the fields below. The export may carry
- * additional per-project fields (`path`, `daily`, `sessions`, `prompts`);
- * they are intentionally optional and ignored by the MVP viewer.
+ * Which per-project fields are present depends on the export `--detail` level:
+ *   summary  → totals only
+ *   daily    → + daily[]
+ *   sessions → + daily[], sessions[]
+ *   raw      → + daily[], sessions[], prompts[]
+ *
+ * Every consumer must treat the optional fields as possibly-absent.
  */
 
 export type ClockworkProvider = 'claude' | 'codex' | 'both' | string;
@@ -16,16 +20,36 @@ export interface ClockworkProjectTotals {
   active_days: number;
 }
 
+/** One calendar day of activity (date is YYYY-MM-DD in `daily_tz`, i.e. UTC). */
+export interface DailyEntry {
+  date: string;
+  minutes: number;
+  prompts: number;
+}
+
+/** One work session. `start`/`end` are epoch seconds. */
+export interface SessionEntry {
+  start: number;
+  end: number;
+  minutes: number;
+  prompts: number;
+}
+
 export interface ClockworkProject {
   id: string;
   /** Display name — "project-N" when the export was anonymized. */
   name: string;
   totals: ClockworkProjectTotals;
-  /** Optional fields present in richer exports; ignored by the MVP. */
   path?: string;
-  daily?: unknown;
-  sessions?: unknown;
-  prompts?: unknown;
+  /** First/last activity as epoch seconds, when the export provides them. */
+  first?: number;
+  last?: number;
+  /** Present at --detail daily and richer. */
+  daily?: DailyEntry[];
+  /** Present at --detail sessions and richer. */
+  sessions?: SessionEntry[];
+  /** Prompt timestamps (epoch seconds); present only at --detail raw. */
+  prompts?: number[];
 }
 
 export interface ClockworkGrandTotals {
@@ -40,6 +64,8 @@ export interface ClockworkExport {
   schema: string;
   generated_at: string;
   provider: ClockworkProvider;
+  /** Timezone the `daily[].date` strings are bucketed in; "UTC" in v1. */
+  daily_tz?: string;
   projects: ClockworkProject[];
   totals: ClockworkGrandTotals;
 }

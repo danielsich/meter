@@ -1,5 +1,15 @@
 import './styles.css';
-import type { ClockworkExport, ClockworkProject } from './clockwork';
+import type { ClockworkExport, ClockworkProject, DailyEntry } from './clockwork';
+import {
+  activeDates,
+  allPrompts,
+  computeStreaks,
+  contributionGrid,
+  hourHistogram,
+  hourLevel,
+  projectRange,
+  sortedDaily,
+} from './stats';
 
 const EXPECTED_SCHEMA = 'clockwork/v1';
 
@@ -30,6 +40,36 @@ function formatGeneratedAt(iso: string): string {
   return date.toLocaleString(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
+  });
+}
+
+/** Epoch seconds → medium date, e.g. "Jul 6, 2026". */
+function formatDate(sec: number): string {
+  const date = new Date(sec * 1000);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
+/** "YYYY-MM-DD" (UTC) → "Mon, Jul 6" for calendar tooltips. */
+function formatDayLabel(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** "YYYY-MM-DD" (UTC) → "Jul 6" for compact axis labels. */
+function shortDate(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
@@ -85,7 +125,7 @@ function clear(...ids: string[]): void {
 }
 
 function renderError(headline: string, detail: string): void {
-  clear('meta', 'readout');
+  clear('meta', 'readout', 'activity', 'sample-note');
   const meter = el('meter');
   if (!meter) return;
   meter.innerHTML = `
@@ -131,7 +171,151 @@ function renderReadout(data: ClockworkExport): void {
     </dl>`;
 }
 
-function renderMeter(data: ClockworkExport): void {
+/** 24-cell hour-of-day heatmap from a prompt-timestamp list. */
+function heatmapHTML(prompts: number[]): string {
+  const hist = hourHistogram(prompts);
+  const max = Math.max(...hist);
+  const cells = hist
+    .map((count, h) => {
+      const label = `${String(h).padStart(2, '0')}:00 — ${count} ${
+        count === 1 ? 'prompt' : 'prompts'
+      }`;
+      return `<span class="cell lvl-${hourLevel(
+        count,
+        max,
+      )}" title="${label}"></span>`;
+    })
+    .join('');
+  const axis = [0, 6, 12, 18, 23]
+    .map((h) => `<span style="grid-column:${h + 1}">${h}</span>`)
+    .join('');
+  return `<div class="heat">${cells}</div><div class="heat-axis">${axis}</div>`;
+}
+
+/** GitHub-style last-12-weeks contribution calendar. */
+function contributionHTML(data: ClockworkExport): string {
+  const { columns } = contributionGrid(data, 12);
+  const cells = columns
+    .map((column) =>
+      column
+        .map((cell) => {
+          if (cell.inFuture) return `<span class="cell empty"></span>`;
+          const time =
+            cell.minutes > 0 ? formatMinutes(cell.minutes) : 'no activity';
+          return `<span class="cell lvl-${cell.level}" title="${formatDayLabel(
+            cell.dateStr,
+          )} — ${time}"></span>`;
+        })
+        .join(''),
+    )
+    .join('');
+  return `<div class="contrib">${cells}</div>`;
+}
+
+/** Per-day horizontal bar chart for one project's daily breakdown. */
+function dayBarsHTML(daily: DailyEntry[]): string {
+  const days = sortedDaily(daily);
+  const max = Math.max(...days.map((d) => d.minutes), 1);
+  const rows = days
+    .map((d) => {
+      const w = ((d.minutes / max) * 100).toFixed(1);
+      return `
+      <div class="daybar">
+        <span class="db-date">${shortDate(d.date)}</span>
+        <span class="db-track"><span class="db-fill" style="width:${w}%"></span></span>
+        <span class="db-min">${formatMinutes(d.minutes)}</span>
+        <span class="db-p">${formatNumber(d.prompts)}<span class="unit">p</span></span>
+      </div>`;
+    })
+    .join('');
+  return `<div class="daybars">${rows}</div>`;
+}
+
+/** Body of a project's expanded drill-down panel. */
+function drillContent(p: ClockworkProject): string {
+  const range = projectRange(p);
+  const stat = (label: string, value: string) =>
+    `<div class="ds"><span class="ds-v">${value}</span><span class="ds-l">${label}</span></div>`;
+
+  const stats = `
+    <div class="drill-stats">
+      ${stat('active days', formatNumber(p.totals.active_days))}
+      ${stat('sessions', formatNumber(p.totals.sessions))}
+      ${range.first !== undefined ? stat('first', formatDate(range.first)) : ''}
+      ${range.last !== undefined ? stat('last', formatDate(range.last)) : ''}
+    </div>`;
+
+  const days =
+    p.daily && p.daily.length
+      ? dayBarsHTML(p.daily)
+      : `<p class="hint">No per-day breakdown in this export — use <code>--detail daily</code> or richer.</p>`;
+
+  const heat =
+    p.prompts && p.prompts.length
+      ? `<div class="heat-wrap"><h4>Hour of day</h4>${heatmapHTML(p.prompts)}</div>`
+      : `<p class="hint">Hourly activity needs a <code>--detail raw</code> export.</p>`;
+
+  return `
+    ${stats}
+    <div class="drill-charts">
+      <div class="drill-days"><h4>Per day</h4>${days}</div>
+      ${heat}
+    </div>`;
+}
+
+/** Activity summary: streaks, calendar, and the global hour heatmap. */
+function renderActivity(data: ClockworkExport): void {
+  const activity = el('activity');
+  if (!activity) return;
+
+  const streaks = computeStreaks(activeDates(data));
+  const prompts = allPrompts(data);
+
+  if (streaks.activeDays === 0) {
+    // No daily data at all — offer the global heatmap if prompts somehow exist,
+    // otherwise a single hint. Keeps the section from rendering empty boxes.
+    activity.innerHTML = prompts
+      ? `<div class="heat-wrap card"><h3>When you work</h3>${heatmapHTML(
+          prompts,
+        )}</div>`
+      : `<div class="hint card">Streaks and the calendar need a <code>--detail daily</code> export (or richer).</div>`;
+    return;
+  }
+
+  const streakCard = (value: string, label: string, tag = '') =>
+    `<div class="stat-card">
+       <span class="sc-value">${value}</span>
+       <span class="sc-label">${label}</span>
+       ${tag}
+     </div>`;
+
+  const liveTag = `<span class="sc-tag ${streaks.live ? 'live' : 'ended'}">${
+    streaks.live ? 'live' : 'ended'
+  }</span>`;
+
+  const streakCards = `
+    <div class="streaks">
+      ${streakCard(String(streaks.current), 'current streak · days', liveTag)}
+      ${streakCard(String(streaks.longest), 'longest streak · days')}
+      ${streakCard(String(streaks.activeDays), 'total active days')}
+    </div>`;
+
+  const heat = prompts
+    ? `<div class="heat-wrap"><h3>When you work</h3>${heatmapHTML(prompts)}</div>`
+    : `<div class="hint">Export with <code>clockwork both export</code> (default <code>--detail raw</code>) to see hourly activity.</div>`;
+
+  activity.innerHTML = `
+    ${streakCards}
+    <div class="cal-heat">
+      <div class="calendar"><h3>Last 12 weeks</h3>${contributionHTML(data)}</div>
+      ${heat}
+    </div>`;
+}
+
+/** SVG chevron used on each expandable project row. */
+const CHEVRON = `<svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function renderProjects(data: ClockworkExport): void {
   const meter = el('meter');
   if (!meter) return;
 
@@ -153,39 +337,39 @@ function renderMeter(data: ClockworkExport): void {
 
   const pctOf = (minutes: number) =>
     Math.min(100, (minutes / axisMax) * 100).toFixed(2);
+  const leftPct = (t: number) => ((t / axisMax) * 100).toFixed(2);
 
   const scale = ticks
     .map(
       (t) =>
-        `<span class="tick" style="left:${((t / axisMax) * 100).toFixed(
-          2,
-        )}%">${formatTick(t)}</span>`,
+        `<span class="tick" style="left:${leftPct(t)}%">${formatTick(t)}</span>`,
     )
     .join('');
 
   const grid = ticks
-    .map(
-      (t) =>
-        `<span class="grid" style="left:${((t / axisMax) * 100).toFixed(
-          2,
-        )}%"></span>`,
-    )
+    .map((t) => `<span class="grid" style="left:${leftPct(t)}%"></span>`)
     .join('');
 
   const rows = projects
     .map((p, i) => {
       const rank = String(i + 1).padStart(2, '0');
       return `
-      <li class="row" style="--w:${pctOf(p.totals.minutes)}%;--i:${i}">
-        <span class="bar" aria-hidden="true"></span>
-        <span class="rank">${rank}</span>
-        <span class="pname" title="${escapeHtml(p.name)}">${escapeHtml(
-          p.name,
-        )}</span>
-        <span class="reading">${formatMinutes(p.totals.minutes)}</span>
-        <span class="pcount">${formatNumber(
-          p.totals.prompts,
-        )}<span class="unit">prompts</span></span>
+      <li class="row-item" style="--w:${pctOf(p.totals.minutes)}%;--i:${i}">
+        <button class="row" type="button" aria-expanded="false" aria-controls="drill-${i}">
+          <span class="bar" aria-hidden="true"></span>
+          <span class="rank">${rank}</span>
+          <span class="pname" title="${escapeHtml(p.name)}">${escapeHtml(
+            p.name,
+          )}</span>
+          <span class="reading">${formatMinutes(p.totals.minutes)}</span>
+          <span class="pcount">${formatNumber(
+            p.totals.prompts,
+          )}<span class="unit">prompts</span></span>
+          ${CHEVRON}
+        </button>
+        <div class="drill" id="drill-${i}" role="region" aria-hidden="true">
+          <div class="drill-inner">${drillContent(p)}</div>
+        </div>
       </li>`;
     })
     .join('');
@@ -196,6 +380,55 @@ function renderMeter(data: ClockworkExport): void {
       <div class="graticule" aria-hidden="true">${grid}</div>
       <ol class="rows">${rows}</ol>
     </div>`;
+
+  wireDrilldowns(meter);
+}
+
+/** Expand/collapse project rows — one open at a time, keyboard-accessible. */
+function wireDrilldowns(container: HTMLElement): void {
+  const buttons = Array.from(
+    container.querySelectorAll<HTMLButtonElement>('.row'),
+  );
+  const setOpen = (btn: HTMLButtonElement, open: boolean) => {
+    const item = btn.closest('.row-item');
+    const panel = document.getElementById(
+      btn.getAttribute('aria-controls') ?? '',
+    );
+    item?.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    panel?.setAttribute('aria-hidden', String(!open));
+  };
+
+  for (const btn of buttons) {
+    btn.addEventListener('click', () => {
+      const willOpen = btn.getAttribute('aria-expanded') !== 'true';
+      for (const other of buttons) if (other !== btn) setOpen(other, false);
+      setOpen(btn, willOpen);
+    });
+  }
+}
+
+/** The built-in placeholder written by scripts/prepare-data.mjs. */
+function isSampleData(data: ClockworkExport): boolean {
+  return (
+    data.provider === 'sample' ||
+    (data.projects.length === 1 && data.projects[0].id === 'sample')
+  );
+}
+
+/** When only placeholder data is loaded, invite the visitor to load their own. */
+function renderSampleState(data: ClockworkExport): void {
+  const note = el('sample-note');
+  const sample = isSampleData(data);
+  if (note) {
+    note.innerHTML = sample
+      ? `<div class="banner">You're viewing <strong>sample data</strong>. Load your own export with <strong>Load .json</strong>, or follow <strong>How to use meter</strong> below to publish yours.</div>`
+      : '';
+  }
+  if (sample) {
+    const howto = el('howto') as HTMLDetailsElement | null;
+    if (howto) howto.open = true;
+  }
 }
 
 /** Validate a parsed export and render it, or show a clear error. */
@@ -209,7 +442,9 @@ function show(data: ClockworkExport, source: Source): void {
   }
   renderMeta(data, source);
   renderReadout(data);
-  renderMeter(data);
+  renderActivity(data);
+  renderProjects(data);
+  renderSampleState(data);
 }
 
 function setResetVisible(visible: boolean): void {

@@ -1,12 +1,30 @@
 # meter
 
-A static dashboard for [**clockwork**](#), a separate CLI tool. You generate a
-JSON export locally with clockwork, `meter` bundles it with a typed frontend
-viewer (Vite + TypeScript, no framework), and GitHub Actions deploys the
-compiled `dist/` to GitHub Pages.
+A static dashboard for the [**clockwork CLI**](https://github.com/danielsich/clockwork).
+You generate a JSON export locally with clockwork, `meter` bundles it with a
+typed frontend viewer (Vite + TypeScript, no framework), and GitHub Actions
+deploys the compiled `dist/` to GitHub Pages.
 
 This repository is **independent of the clockwork source** — it only reads
 clockwork's `export` output (schema `clockwork/v1`); it does not contain the CLI.
+
+## Features
+
+- **Activity & streaks** — current streak (live/ended), longest streak, and
+  total active days, plus a GitHub-style last-12-weeks contribution calendar
+  colored by daily minutes.
+- **Project meter** — every project read as a bar against one shared graduated
+  time-scale, sorted by time.
+- **Per-project drill-downs** — click any row (keyboard-accessible) to expand
+  key stats, a per-day bar chart, and that project's hour-of-day heatmap.
+- **Hour-of-day heatmap** — a 24-hour strip showing when work happens, globally
+  and per project. Needs a `--detail raw` export (the clockwork default); with a
+  lighter export it hides and shows a hint instead.
+- **Bring your own export** — load any `clockwork/v1` file in the browser
+  (button or drag-and-drop), parsed locally and never uploaded.
+
+Charts are built with CSS and inline SVG — no charting library, no runtime
+dependencies. Features degrade gracefully when an export omits a field.
 
 ## The full loop
 

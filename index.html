@@ -21,6 +21,13 @@
         <div class="masthead-right">
           <div id="meta" class="meta"></div>
           <div class="actions">
+            <a
+              class="btn link"
+              href="https://github.com/danielsich/clockwork"
+              target="_blank"
+              rel="noopener"
+              >clockwork CLI ↗</a
+            >
             <button id="load" class="btn" type="button">Load .json</button>
             <button id="reset" class="btn ghost" type="button" hidden>
               Published data
@@ -34,8 +41,58 @@
           </div>
         </div>
       </header>
+
+      <div id="sample-note"></div>
+
+      <details id="howto" class="howto">
+        <summary>How to use meter</summary>
+        <div class="howto-body">
+          <ol>
+            <li>
+              Install the CLI from
+              <a
+                href="https://github.com/danielsich/clockwork"
+                target="_blank"
+                rel="noopener"
+                >github.com/danielsich/clockwork</a
+              >.
+            </li>
+            <li>
+              Generate your data — anonymized, because this site is public:
+              <pre><code>clockwork both export --anonymize &gt; data/clockwork-data.json</code></pre>
+              Use <code>claude</code> or <code>codex</code> instead of
+              <code>both</code> for a single tool; drop <code>--anonymize</code>
+              only on a private repo.
+            </li>
+            <li>
+              Commit <code>data/clockwork-data.json</code> and push to
+              <code>main</code> — GitHub Actions rebuilds and redeploys
+              automatically.
+            </li>
+            <li>Reload the dashboard.</li>
+          </ol>
+          <p class="howto-privacy">
+            Privacy: the deployed data is public. <code>--anonymize</code>
+            replaces real project paths with <code>project-N</code>. You can also
+            click <strong>Load .json</strong> to preview an export locally,
+            without deploying.
+          </p>
+        </div>
+      </details>
+
       <section id="readout" class="readout" aria-live="polite"></section>
+      <section id="activity" class="activity"></section>
       <main id="meter" class="panel"></main>
+
+      <footer class="site-footer">
+        Powered by the
+        <a
+          href="https://github.com/danielsich/clockwork"
+          target="_blank"
+          rel="noopener"
+          >clockwork CLI</a
+        >.
+      </footer>
     </div>
     <div id="dropzone" class="dropzone" aria-hidden="true">
       <div class="dropzone-inner">
