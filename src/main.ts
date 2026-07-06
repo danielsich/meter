@@ -124,6 +124,8 @@ const el = (id: string) => document.getElementById(id);
 type Source = { kind: 'published' } | { kind: 'upload'; filename: string };
 
 let _rawData: ClockworkExport | null = null;
+let _compareData: ClockworkExport | null = null;
+let _currentSource: Source | null = null;
 let _activePreset: RangePreset | 'all' = 'all';
 
 function applyFilter(data: ClockworkExport, filter: DateFilter | null): ClockworkExport {
@@ -162,10 +164,11 @@ function renderRangeBar(data: ClockworkExport): void {
 function rerender(data: ClockworkExport): void {
   const filter = _activePreset !== 'all' ? presetToFilter(_activePreset) : null;
   const view = applyFilter(data, filter);
+  const compareView = _compareData ? applyFilter(_compareData, filter) : null;
   renderRangeBar(data);
-  renderReadout(view);
+  renderReadout(view, compareView);
   renderActivity(view);
-  renderProjects(view);
+  renderProjects(view, compareView);
   initDeepLink();
 }
 
@@ -188,37 +191,48 @@ function renderError(headline: string, detail: string): void {
     </div>`;
 }
 
-function renderMeta(data: ClockworkExport, source: Source): void {
+function renderMeta(data: ClockworkExport, source: Source, compare?: ClockworkExport | null): void {
   const meta = el('meta');
   if (!meta) return;
   const src =
     source.kind === 'upload'
       ? `<span class="src" title="${escapeHtml(source.filename)}">your file</span>`
       : '';
+  const providerChips = compare
+    ? `<span class="chip chip-a">${escapeHtml(data.provider)}</span><span class="chip-vs">vs</span><span class="chip chip-b">${escapeHtml(compare.provider)}</span><button class="clear-compare" id="clear-compare" type="button" title="Exit comparison mode">✕ compare</button>`
+    : `<span class="chip">${escapeHtml(data.provider)}</span>`;
   meta.innerHTML = `
-    <span class="chip">${escapeHtml(data.provider)}</span>
+    ${providerChips}
     <span class="gen">updated ${escapeHtml(formatGeneratedAt(data.generated_at))}</span>
     ${src}`;
 }
 
-function renderReadout(data: ClockworkExport): void {
+function renderReadout(data: ClockworkExport, compare?: ClockworkExport | null): void {
   const readout = el('readout');
   if (!readout) return;
-  const { totals } = data;
+  const t = data.totals;
+  const c = compare?.totals;
+  const minutes  = t.minutes  + (c?.minutes  ?? 0);
+  const prompts  = t.prompts  + (c?.prompts  ?? 0);
+  const sessions = t.sessions + (c?.sessions ?? 0);
+  // unique project count: union of project ids
+  const projects = compare
+    ? new Set([...data.projects.map((p) => p.id), ...compare.projects.map((p) => p.id)]).size
+    : t.projects;
   readout.innerHTML = `
     <div class="total">
-      <span class="total-value">${formatMinutes(totals.minutes)}</span>
+      <span class="total-value">${formatMinutes(minutes)}</span>
       <span class="total-label">total time logged</span>
     </div>
     <dl class="secondary">
       <div class="metric">
-        <dt>prompts</dt><dd>${formatNumber(totals.prompts)}</dd>
+        <dt>prompts</dt><dd>${formatNumber(prompts)}</dd>
       </div>
       <div class="metric">
-        <dt>sessions</dt><dd>${formatNumber(totals.sessions)}</dd>
+        <dt>sessions</dt><dd>${formatNumber(sessions)}</dd>
       </div>
       <div class="metric">
-        <dt>projects</dt><dd>${formatNumber(totals.projects)}</dd>
+        <dt>projects</dt><dd>${formatNumber(projects)}</dd>
       </div>
     </dl>`;
 }
@@ -354,7 +368,12 @@ function dayBarsHTML(daily: DailyEntry[]): string {
 const LINK_ICON = `<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5L7 4"/><path d="M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5L9 12"/></svg>`;
 
 /** Body of a project's expanded drill-down panel. */
-function drillContent(p: ClockworkProject): string {
+function drillContent(
+  p: ClockworkProject,
+  pCompare?: ClockworkProject | null,
+  providerA?: string,
+  providerB?: string,
+): string {
   const range = projectRange(p);
   const stat = (label: string, value: string) =>
     `<div class="ds"><span class="ds-v">${value}</span><span class="ds-l">${label}</span></div>`;
@@ -364,8 +383,20 @@ function drillContent(p: ClockworkProject): string {
       ? (p.totals.prompts / p.totals.minutes).toFixed(1)
       : '—';
 
+  const splitStat = pCompare
+    ? `<div class="ds ds-split">
+        <span class="ds-v">
+          <span class="cmp-a">${formatMinutes(p.totals.minutes)}</span>
+          <span class="cmp-sep"> · </span>
+          <span class="cmp-b">${formatMinutes(pCompare.totals.minutes)}</span>
+        </span>
+        <span class="ds-l">${escapeHtml(providerA ?? 'primary')} · ${escapeHtml(providerB ?? 'compare')}</span>
+      </div>`
+    : '';
+
   const stats = `
     <div class="drill-stats">
+      ${splitStat}
       ${stat('active days', formatNumber(p.totals.active_days))}
       ${stat('sessions', formatNumber(p.totals.sessions))}
       ${stat('prompts / min', ppm)}
@@ -449,63 +480,153 @@ function renderActivity(data: ClockworkExport): void {
     ${scatter}`;
 }
 
+interface SplitRow {
+  id: string;
+  name: string;
+  minutesA: number;
+  minutesB: number;
+  promptsA: number;
+  promptsB: number;
+  projectA: ClockworkProject | null;
+  projectB: ClockworkProject | null;
+}
+
+function buildSplitRows(primary: ClockworkExport, compare: ClockworkExport): SplitRow[] {
+  const map = new Map<string, SplitRow>();
+  for (const p of primary.projects) {
+    map.set(p.id, {
+      id: p.id, name: p.name,
+      minutesA: p.totals.minutes, minutesB: 0,
+      promptsA: p.totals.prompts, promptsB: 0,
+      projectA: p, projectB: null,
+    });
+  }
+  for (const p of compare.projects) {
+    const existing = map.get(p.id);
+    if (existing) {
+      existing.minutesB = p.totals.minutes;
+      existing.promptsB = p.totals.prompts;
+      existing.projectB = p;
+    } else {
+      map.set(p.id, {
+        id: p.id, name: p.name,
+        minutesA: 0, minutesB: p.totals.minutes,
+        promptsA: 0, promptsB: p.totals.prompts,
+        projectA: null, projectB: p,
+      });
+    }
+  }
+  return [...map.values()]
+    .filter((r) => r.minutesA + r.minutesB > 0)
+    .sort((a, b) => (b.minutesA + b.minutesB) - (a.minutesA + a.minutesB));
+}
+
 /** SVG chevron used on each expandable project row. */
 const CHEVRON = `<svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-function renderProjects(data: ClockworkExport): void {
+function renderProjects(data: ClockworkExport, compare?: ClockworkExport | null): void {
   const meter = el('meter');
   if (!meter) return;
 
-  if (data.projects.length === 0) {
-    meter.innerHTML = `
-      <div class="notice">
-        <span class="notice-mark">idle</span>
-        <p class="notice-head">No projects on the meter yet.</p>
-        <p class="notice-detail">Run <code>clockwork both export --anonymize &gt; data/clockwork-data.json</code>, then rebuild.</p>
-      </div>`;
-    return;
+  const isSplit = !!compare;
+
+  // Build a unified list of rows (handles both normal and split mode)
+  type Row = {
+    id: string; name: string;
+    totalMinutes: number; totalPrompts: number;
+    minutesA: number; minutesB: number;
+    project: ClockworkProject;
+    projectB: ClockworkProject | null;
+  };
+
+  let rows: Row[];
+  if (isSplit) {
+    const merged = buildSplitRows(data, compare!);
+    if (!merged.length) {
+      meter.innerHTML = `<div class="notice"><span class="notice-mark">idle</span><p class="notice-head">No overlapping projects found.</p></div>`;
+      return;
+    }
+    rows = merged.map((r) => ({
+      id: r.id, name: r.name,
+      totalMinutes: r.minutesA + r.minutesB,
+      totalPrompts: r.promptsA + r.promptsB,
+      minutesA: r.minutesA, minutesB: r.minutesB,
+      project: (r.projectA ?? r.projectB)!,
+      projectB: r.projectB,
+    }));
+  } else {
+    if (!data.projects.length) {
+      meter.innerHTML = `
+        <div class="notice">
+          <span class="notice-mark">idle</span>
+          <p class="notice-head">No projects on the meter yet.</p>
+          <p class="notice-detail">Run <code>clockwork both export --anonymize &gt; data/clockwork-data.json</code>, then rebuild.</p>
+        </div>`;
+      return;
+    }
+    const sorted = [...data.projects].sort((a, b) => b.totals.minutes - a.totals.minutes);
+    rows = sorted.map((p) => ({
+      id: p.id, name: p.name,
+      totalMinutes: p.totals.minutes, totalPrompts: p.totals.prompts,
+      minutesA: p.totals.minutes, minutesB: 0,
+      project: p, projectB: null,
+    }));
   }
 
-  const projects: ClockworkProject[] = [...data.projects].sort(
-    (a, b) => b.totals.minutes - a.totals.minutes,
-  );
-  const maxMinutes = projects[0].totals.minutes;
-  const { axisMax, ticks } = buildScale(maxMinutes);
-
-  const pctOf = (minutes: number) =>
-    Math.min(100, (minutes / axisMax) * 100).toFixed(2);
+  const maxTotal = rows[0].totalMinutes;
+  const { axisMax, ticks } = buildScale(maxTotal);
+  const pctOf = (m: number) => Math.min(100, (m / axisMax) * 100).toFixed(2);
   const leftPct = (t: number) => ((t / axisMax) * 100).toFixed(2);
 
   const scale = ticks
-    .map(
-      (t) =>
-        `<span class="tick" style="left:${leftPct(t)}%">${formatTick(t)}</span>`,
-    )
+    .map((t) => `<span class="tick" style="left:${leftPct(t)}%">${formatTick(t)}</span>`)
     .join('');
-
   const grid = ticks
     .map((t) => `<span class="grid" style="left:${leftPct(t)}%"></span>`)
     .join('');
 
-  const rows = projects
-    .map((p, i) => {
+  const providerA = data.provider;
+  const providerB = compare?.provider ?? '';
+
+  const rowsHTML = rows
+    .map((r, i) => {
       const rank = String(i + 1).padStart(2, '0');
+      const totalPct = pctOf(r.totalMinutes);
+
+      const barHTML = isSplit
+        ? (() => {
+            const pctA = r.totalMinutes > 0
+              ? ((r.minutesA / r.totalMinutes) * 100).toFixed(2)
+              : '0';
+            return `<span class="bar bar-split" aria-hidden="true"><span class="bar-a" style="width:${pctA}%"></span><span class="bar-b" style="width:calc(100% - ${pctA}%)"></span></span>`;
+          })()
+        : `<span class="bar" aria-hidden="true"></span>`;
+
+      const nameHTML = isSplit
+        ? `<span class="pname pname--split">
+            <span class="pname-text" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>
+            <span class="split-sub">
+              <span class="sub-a">${formatMinutes(r.minutesA)}</span>
+              <span class="sub-sep">·</span>
+              <span class="sub-b">${formatMinutes(r.minutesB)}</span>
+            </span>
+          </span>`
+        : `<span class="pname" title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</span>`;
+
+      const drillHTML = drillContent(r.project, isSplit ? r.projectB : null, providerA, providerB);
+
       return `
-      <li class="row-item" data-project-id="${escapeHtml(p.id)}" style="--w:${pctOf(p.totals.minutes)}%;--i:${i}">
+      <li class="row-item" data-project-id="${escapeHtml(r.id)}" style="--w:${totalPct}%;--i:${i}">
         <button class="row" type="button" aria-expanded="false" aria-controls="drill-${i}">
-          <span class="bar" aria-hidden="true"></span>
+          ${barHTML}
           <span class="rank">${rank}</span>
-          <span class="pname" title="${escapeHtml(p.name)}">${escapeHtml(
-            p.name,
-          )}</span>
-          <span class="reading">${formatMinutes(p.totals.minutes)}</span>
-          <span class="pcount">${formatNumber(
-            p.totals.prompts,
-          )}<span class="unit">prompts</span></span>
+          ${nameHTML}
+          <span class="reading">${formatMinutes(r.totalMinutes)}</span>
+          <span class="pcount">${formatNumber(r.totalPrompts)}<span class="unit">prompts</span></span>
           ${CHEVRON}
         </button>
         <div class="drill" id="drill-${i}" role="region" aria-hidden="true">
-          <div class="drill-inner">${drillContent(p)}</div>
+          <div class="drill-inner">${drillHTML}</div>
         </div>
       </li>`;
     })
@@ -515,7 +636,7 @@ function renderProjects(data: ClockworkExport): void {
     <div class="scale" aria-hidden="true">${scale}</div>
     <div class="chart">
       <div class="graticule" aria-hidden="true">${grid}</div>
-      <ol class="rows">${rows}</ol>
+      <ol class="rows${isSplit ? ' rows--split' : ''}">${rowsHTML}</ol>
     </div>`;
 
   wireDrilldowns(meter);
@@ -602,6 +723,8 @@ function show(data: ClockworkExport, source: Source): void {
     return;
   }
   _rawData = data;
+  _compareData = null;
+  _currentSource = source;
   _activePreset = 'all';
   renderMeta(data, source);
   rerender(data);
@@ -639,7 +762,6 @@ async function loadPublished(): Promise<void> {
 function loadFromFile(file: File): void {
   const reader = new FileReader();
   reader.onload = () => {
-    // Once someone loads their own file, offer a way back to published data.
     setResetVisible(true);
     let data: ClockworkExport;
     try {
@@ -651,13 +773,42 @@ function loadFromFile(file: File): void {
       );
       return;
     }
-    show(data, { kind: 'upload', filename: file.name });
+    if (data.schema !== EXPECTED_SCHEMA) {
+      // Let show() handle the schema error properly
+      show(data, { kind: 'upload', filename: file.name });
+      return;
+    }
+
+    // Auto-detect comparison: two single-provider exports with different providers
+    const isComparison =
+      _rawData !== null &&
+      _rawData.provider !== data.provider &&
+      _rawData.provider !== 'both' &&
+      data.provider !== 'both';
+
+    if (isComparison) {
+      _compareData = data;
+      if (_rawData && _currentSource) {
+        renderMeta(_rawData, _currentSource, data);
+        rerender(_rawData);
+      }
+    } else {
+      show(data, { kind: 'upload', filename: file.name });
+    }
   };
   reader.onerror = () => {
     setResetVisible(true);
     renderError(`Couldn't read "${file.name}".`, 'Try loading the file again.');
   };
   reader.readAsText(file);
+}
+
+function clearCompare(): void {
+  _compareData = null;
+  if (_rawData && _currentSource) {
+    renderMeta(_rawData, _currentSource);
+    rerender(_rawData);
+  }
 }
 
 /** Open the project matching ?project= in the URL after rendering. */
@@ -838,6 +989,10 @@ function wireControls(): void {
 
   loadBtn?.addEventListener('click', () => input?.click());
   resetBtn?.addEventListener('click', () => void loadPublished());
+  // clear-compare is rendered dynamically inside #meta, so delegate from parent
+  el('meta')?.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('#clear-compare')) clearCompare();
+  });
   el('export')?.addEventListener('click', () => {
     if (!_rawData) return;
     const filter = _activePreset !== 'all' ? presetToFilter(_activePreset) : null;

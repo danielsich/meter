@@ -936,6 +936,115 @@ body.dragging .dropzone {
   color: var(--muted);
 }
 
+/* ── Provider comparison ──────────────────────────────── */
+.chip-vs {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 0 0.1rem;
+}
+
+.chip-a {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+}
+
+.chip-b {
+  color: var(--patina);
+  border-color: var(--patina);
+}
+
+.clear-compare {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  cursor: pointer;
+  transition: color 0.13s ease, border-color 0.13s ease;
+}
+
+.clear-compare:hover {
+  color: var(--paper);
+  border-color: #3a4a58;
+}
+
+/* Split bars */
+.bar-split {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--w);
+  display: flex;
+  overflow: hidden;
+  animation: sweep 0.85s cubic-bezier(0.2, 0.8, 0.15, 1) both;
+  animation-delay: calc(var(--i) * 0.06s + 0.35s);
+}
+
+.bar-a {
+  height: 100%;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, var(--brass-fill) 0%, var(--brass-fill-2) 100%);
+}
+
+.bar-b {
+  height: 100%;
+  flex: 1;
+  background: linear-gradient(90deg, rgba(100, 182, 164, 0.14) 0%, rgba(100, 182, 164, 0.22) 100%);
+  border-right: 2px solid var(--patina);
+  box-shadow: 2px 0 8px rgba(100, 182, 164, 0.3);
+}
+
+.row:hover .bar-a {
+  background: linear-gradient(90deg, var(--brass-fill-2) 0%, rgba(216, 162, 74, 0.32) 100%);
+}
+
+.row:hover .bar-b {
+  background: linear-gradient(90deg, rgba(100, 182, 164, 0.18) 0%, rgba(100, 182, 164, 0.3) 100%);
+}
+
+/* Split name sub-label */
+.pname--split {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pname-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.split-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.sub-a { color: var(--brass-hi); }
+.sub-b { color: var(--patina); }
+.sub-sep { color: var(--muted); }
+
+/* Comparison stat in drill-down */
+.ds-split .ds-v {
+  font-size: 0.9rem;
+}
+
+.cmp-a { color: var(--brass-hi); }
+.cmp-b { color: var(--patina); }
+.cmp-sep { color: var(--muted); }
+
 /* ── Session rhythm scatter ───────────────────────────── */
 .scatter-wrap {
   overflow: hidden;
@@ -1049,7 +1158,8 @@ body.dragging .dropzone {
   .masthead,
   .readout,
   .tick,
-  .bar {
+  .bar,
+  .bar-split {
     animation: none;
   }
   .drill,
