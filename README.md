@@ -1,5 +1,7 @@
 # meter
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/danielsich/meter)
+
 A static dashboard for the [**clockwork CLI**](https://github.com/danielsich/clockwork).
 You generate a JSON export locally with clockwork, `meter` bundles it with a
 typed frontend viewer (Vite + TypeScript, no framework), and GitHub Actions
