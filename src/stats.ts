@@ -163,6 +163,17 @@ export function hourLevel(count: number, max: number): number {
   return Math.min(4, Math.ceil((count / max) * 4));
 }
 
+/** min/max over an array without spreading (safe for very large inputs). */
+function extent(nums: number[]): { min: number; max: number } {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const n of nums) {
+    if (n < min) min = n;
+    if (n > max) max = n;
+  }
+  return { min, max };
+}
+
 /** Best-effort first/last activity (epoch seconds) for a project. */
 export function projectRange(p: ClockworkProject): {
   first?: number;
@@ -176,12 +187,13 @@ export function projectRange(p: ClockworkProject): {
   }
   if (p.sessions && p.sessions.length) {
     return {
-      first: Math.min(...p.sessions.map((s) => s.start)),
-      last: Math.max(...p.sessions.map((s) => s.end)),
+      first: extent(p.sessions.map((s) => s.start)).min,
+      last: extent(p.sessions.map((s) => s.end)).max,
     };
   }
   if (p.prompts && p.prompts.length) {
-    return { first: Math.min(...p.prompts), last: Math.max(...p.prompts) };
+    const { min, max } = extent(p.prompts);
+    return { first: min, last: max };
   }
   if (p.daily && p.daily.length) {
     const ords = p.daily.map((d) => ordinal(d.date)).sort((a, b) => a - b);

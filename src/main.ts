@@ -23,7 +23,8 @@ const EXPECTED_SCHEMA = 'clockwork/v1';
 
 /** Format a duration in minutes as "Xh Ym" (e.g. 1234.76 → "20h 34m"). */
 export function formatMinutes(m: number): string {
-  const total = Math.max(0, Math.floor(m));
+  const n = Number(m);
+  const total = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
   const hours = Math.floor(total / 60);
   const minutes = total % 60;
   return `${hours}h ${minutes}m`;
@@ -39,7 +40,10 @@ function formatTick(minutes: number): string {
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('en-US');
+  // Coerce first: a "numeric" field that is actually a string would otherwise
+  // pass through String.prototype.toLocaleString() unchanged and reach innerHTML.
+  const num = Number(n);
+  return Number.isFinite(num) ? num.toLocaleString('en-US') : '0';
 }
 
 function formatGeneratedAt(iso: string): string {
@@ -341,7 +345,13 @@ function sessionRhythmHTML(sessions: SessionEntry[]): string {
 
   const usePrompts = _yMetric === 'prompts';
   const yVal = (s: SessionEntry) => usePrompts ? s.prompts : s.minutes;
-  const maxY = Math.max(...sessions.map(yVal), usePrompts ? 10 : 60);
+  // Iterate rather than spread: `Math.max(...bigArray)` overflows the call
+  // stack on very large session lists.
+  let maxY = usePrompts ? 10 : 60;
+  for (const s of sessions) {
+    const v = yVal(s);
+    if (v > maxY) maxY = v;
+  }
 
   const VW = 780, VH = 160;
   const ML = 46, MR = 12, MT = 10, MB = 28;
@@ -395,9 +405,9 @@ function sessionRhythmHTML(sessions: SessionEntry[]): string {
       const cx = xOf(s.start).toFixed(1);
       const cy = yOf(yVal(s)).toFixed(1);
       const tip = usePrompts
-        ? `${s.prompts} prompts · ${formatMinutes(s.minutes)}`
-        : `${formatMinutes(s.minutes)} · ${s.prompts} prompts`;
-      return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#d8a24a" opacity="0.52"><title>${tip}</title></circle>`;
+        ? `${formatNumber(s.prompts)} prompts · ${formatMinutes(s.minutes)}`
+        : `${formatMinutes(s.minutes)} · ${formatNumber(s.prompts)} prompts`;
+      return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#d8a24a" opacity="0.52"><title>${escapeHtml(tip)}</title></circle>`;
     })
     .join('');
 
@@ -434,7 +444,11 @@ function dayBarsHTML(daily: DailyEntry[]): string {
     _daySort === 'asc' ? [...byDate].sort((a, b) => valueOf(a) - valueOf(b)) :
     _daySort === 'desc' ? [...byDate].sort((a, b) => valueOf(b) - valueOf(a)) :
     byDate;
-  const max = Math.max(...days.map(valueOf), 1);
+  let max = 1;
+  for (const d of days) {
+    const v = valueOf(d);
+    if (v > max) max = v;
+  }
   const rows = days
     .map((d) => {
       const w = ((valueOf(d) / max) * 100).toFixed(1);
@@ -825,6 +839,26 @@ function renderSampleState(data: ClockworkExport): void {
   }
 }
 
+/**
+ * Cheap structural guard for parsed exports. Confirms the shape the renderers
+ * assume (arrays where they iterate, objects where they read totals) so a
+ * malformed file fails with a readable message instead of a stack trace.
+ * Field-level escaping/coercion at render time handles hostile values within a
+ * well-shaped file; this only rejects the wrong shape.
+ */
+function structuralError(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return 'Expected a JSON object at the top level.';
+  const d = data as Record<string, unknown>;
+  if (!Array.isArray(d.projects)) return 'Missing a "projects" array.';
+  if (typeof d.totals !== 'object' || d.totals === null) return 'Missing a "totals" object.';
+  for (const p of d.projects as unknown[]) {
+    if (typeof p !== 'object' || p === null) return 'A "projects" entry is not an object.';
+    const totals = (p as Record<string, unknown>).totals;
+    if (typeof totals !== 'object' || totals === null) return 'A project is missing its "totals" object.';
+  }
+  return null;
+}
+
 /** Validate a parsed export and render it, or show a clear error. */
 function show(data: ClockworkExport, source: Source): void {
   if (data.schema !== EXPECTED_SCHEMA) {
@@ -832,6 +866,11 @@ function show(data: ClockworkExport, source: Source): void {
       `This file reports schema "${data.schema ?? '(missing)'}".`,
       `meter reads ${EXPECTED_SCHEMA}. Re-export with a current clockwork build.`,
     );
+    return;
+  }
+  const shapeErr = structuralError(data);
+  if (shapeErr) {
+    renderError('This export is malformed.', shapeErr);
     return;
   }
   _rawData = data;
@@ -891,6 +930,12 @@ function loadFromFile(file: File): void {
     if (data.schema !== EXPECTED_SCHEMA) {
       // Let show() handle the schema error properly
       show(data, { kind: 'upload', filename: file.name });
+      return;
+    }
+
+    const shapeErr = structuralError(data);
+    if (shapeErr) {
+      renderError('This export is malformed.', shapeErr);
       return;
     }
 

@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -132,10 +132,42 @@ async function exists(path) {
   }
 }
 
+/**
+ * Guard against publishing non-anonymized data to the public site. Enforced in
+ * CI (and any GitHub Actions run); locally it only warns, so you can preview a
+ * real export. Set METER_ALLOW_UNANONYMIZED=1 to deploy real data on purpose
+ * (e.g. a private repo). This cannot scrub data already committed to git.
+ */
+function assertAnonymized(raw) {
+  if (process.env.METER_ALLOW_UNANONYMIZED === '1') return;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(
+      `data/clockwork-data.json is not valid JSON: ${err instanceof Error ? err.message : err}`,
+    );
+  }
+
+  if (parsed?.anonymized === true) return;
+
+  const enforced = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+  const msg =
+    'data/clockwork-data.json is not marked "anonymized": true. This site is public — ' +
+    're-export with `clockwork ... export --anonymize`, or set ' +
+    'METER_ALLOW_UNANONYMIZED=1 to publish it deliberately.';
+
+  if (enforced) throw new Error(msg);
+  console.warn(`[prepare-data] WARNING: ${msg}`);
+}
+
 async function main() {
   await mkdir(publicDir, { recursive: true });
 
   if (await exists(source)) {
+    const raw = await readFile(source, 'utf8');
+    assertAnonymized(raw);
     await copyFile(source, target);
     console.log('[prepare-data] Copied data/clockwork-data.json → public/');
   } else {
