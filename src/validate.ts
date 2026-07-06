@@ -6,7 +6,15 @@
  * unit-tested under `node --test` without a browser.
  */
 
-export const EXPECTED_SCHEMA = 'clockwork/v1';
+/** Schemas this viewer can render. v2 adds per-project `provider` + `providers[]`. */
+export const ACCEPTED_SCHEMAS = ['clockwork/v1', 'clockwork/v2'] as const;
+
+/** Human-readable list for error messages, e.g. "clockwork/v1 or clockwork/v2". */
+export const ACCEPTED_SCHEMAS_LABEL = ACCEPTED_SCHEMAS.join(' or ');
+
+export function isSchemaSupported(schema: unknown): boolean {
+  return typeof schema === 'string' && (ACCEPTED_SCHEMAS as readonly string[]).includes(schema);
+}
 
 /**
  * Upper bound for a loaded export. A real clockwork/v1 file is well under this
@@ -46,6 +54,11 @@ export function structuralError(data: unknown): string | null {
 
   if (data.provider !== undefined && typeof data.provider !== 'string')
     return 'Field "provider" must be a string.';
+  if (data.providers !== undefined) {
+    if (!Array.isArray(data.providers)) return 'Field "providers" must be an array.';
+    for (const name of data.providers as unknown[])
+      if (typeof name !== 'string') return 'A "providers" entry is not a string.';
+  }
   if (data.generated_at !== undefined && typeof data.generated_at !== 'string')
     return 'Field "generated_at" must be a string.';
   if (!Array.isArray(data.projects)) return 'Missing a "projects" array.';
@@ -55,6 +68,8 @@ export function structuralError(data: unknown): string | null {
     if (!isObject(p)) return 'A "projects" entry is not an object.';
     if (typeof p.id !== 'string') return 'A project is missing a string "id".';
     if (typeof p.name !== 'string') return 'A project is missing a string "name".';
+    if (p.provider !== undefined && typeof p.provider !== 'string')
+      return 'A project\'s "provider" is not a string.';
     if (!isObject(p.totals)) return 'A project is missing its "totals" object.';
 
     if (p.daily !== undefined) {

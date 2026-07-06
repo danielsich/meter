@@ -7,6 +7,7 @@ import {
   computeStreaks,
   contributionGrid,
   filterByMinSession,
+  filterByProvider,
   filterExport,
   hasDateData,
   hasSessionData,
@@ -14,14 +15,16 @@ import {
   hourLevel,
   presetToFilter,
   projectRange,
+  providersOf,
   sortedDaily,
   type DateFilter,
   type RangePreset,
 } from './stats';
 import {
-  EXPECTED_SCHEMA,
+  ACCEPTED_SCHEMAS_LABEL,
   MAX_FILE_BYTES,
   escapeHtml,
+  isSchemaSupported,
   structuralError,
 } from './validate';
 
@@ -144,6 +147,7 @@ let _rawData: ClockworkExport | null = null;
 let _compareData: ClockworkExport | null = null;
 let _currentSource: Source | null = null;
 let _activePreset: RangePreset | 'all' = 'all';
+let _providerFilter: string = 'all';
 let _minSession: number = 0;
 let _yMetric: 'minutes' | 'prompts' = 'minutes';
 let _daySort: 'date' | 'asc' | 'desc' = 'date';
@@ -209,6 +213,50 @@ function renderSessionBar(data: ClockworkExport): void {
   });
 }
 
+/**
+ * Provider filter for a combined clockwork/v2 export. Hidden entirely unless the
+ * loaded file spans more than one provider (and we're not already in file-vs-file
+ * comparison, which owns the same visual channel).
+ */
+function renderProviderBar(providers: string[]): void {
+  const bar = el('provider-bar');
+  if (!bar) return;
+
+  if (_compareData || providers.length < 2) {
+    bar.innerHTML = '';
+    bar.hidden = true;
+    return;
+  }
+  bar.hidden = false;
+
+  const choices = ['all', ...providers];
+  const label = (key: string) => (key === 'all' ? 'Both' : key);
+  const buttons = choices
+    .map((key) => {
+      const active = key === _providerFilter;
+      return `<button class="range-btn${active ? ' active' : ''}" data-provider="${escapeHtml(key)}" type="button">${escapeHtml(label(key))}</button>`;
+    })
+    .join('');
+
+  // In the combined ("Both") view with exactly two providers, the bars are split
+  // A|B — a legend maps each colour back to its tool.
+  const legend =
+    _providerFilter === 'all' && providers.length === 2
+      ? `<span class="prov-legend">
+           <span class="prov-key"><span class="prov-dot prov-dot-a"></span>${escapeHtml(providers[0])}</span>
+           <span class="prov-key"><span class="prov-dot prov-dot-b"></span>${escapeHtml(providers[1])}</span>
+         </span>`
+      : '';
+
+  bar.innerHTML = `<span class="range-label">tool</span>${buttons}${legend}`;
+  bar.querySelectorAll<HTMLButtonElement>('[data-provider]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _providerFilter = btn.dataset.provider ?? 'all';
+      if (_rawData) rerender(_rawData);
+    });
+  });
+}
+
 function wireMetricToggle(): void {
   document.querySelectorAll<HTMLButtonElement>('[data-metric]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -233,13 +281,46 @@ function applyAllFilters(data: ClockworkExport): ClockworkExport {
 }
 
 function rerender(data: ClockworkExport): void {
-  const view = applyAllFilters(data);
-  const compareView = _compareData ? applyAllFilters(_compareData) : null;
+  const providers = providersOf(data);
+  const multi = !_compareData && providers.length > 1;
+  // Reset a stale selection if the newly loaded file doesn't carry that provider.
+  if (_providerFilter !== 'all' && !providers.includes(_providerFilter)) {
+    _providerFilter = 'all';
+  }
+
+  let view: ClockworkExport;
+  let compareView: ClockworkExport | null;
+  let activitySource: ClockworkExport;
+  let mergeByPath = false;
+
+  if (_compareData) {
+    // File-vs-file comparison (two uploaded exports) — unchanged.
+    view = applyAllFilters(data);
+    compareView = applyAllFilters(_compareData);
+    activitySource = data;
+  } else if (multi && _providerFilter !== 'all') {
+    // Narrowed to a single tool within a combined export.
+    activitySource = filterByProvider(data, _providerFilter);
+    view = applyAllFilters(activitySource);
+    compareView = null;
+  } else if (multi && providers.length === 2) {
+    // Combined "Both" view: split each project's bar into its two tools.
+    view = applyAllFilters(filterByProvider(data, providers[0]));
+    compareView = applyAllFilters(filterByProvider(data, providers[1]));
+    activitySource = data;
+    mergeByPath = true;
+  } else {
+    view = applyAllFilters(data);
+    compareView = null;
+    activitySource = data;
+  }
+
+  renderProviderBar(providers);
   renderRangeBar(data);
   renderSessionBar(data);
   renderReadout(view, compareView);
-  renderActivity(view);
-  renderProjects(view, compareView);
+  renderActivity(applyAllFilters(activitySource));
+  renderProjects(view, compareView, mergeByPath);
   initDeepLink();
   wireMetricToggle();
 }
@@ -287,9 +368,12 @@ function renderReadout(data: ClockworkExport, compare?: ClockworkExport | null):
   const minutes  = t.minutes  + (c?.minutes  ?? 0);
   const prompts  = t.prompts  + (c?.prompts  ?? 0);
   const sessions = t.sessions + (c?.sessions ?? 0);
-  // unique project count: union of project ids
+  // Unique project count. Key by path so a project touched by both tools (its
+  // own id per provider in v2, but the same path) counts once — matching the
+  // merged row list. Falls back to id when a path is absent (anonymized/v1).
+  const key = (p: ClockworkProject) => p.path ?? p.id;
   const projects = compare
-    ? new Set([...data.projects.map((p) => p.id), ...compare.projects.map((p) => p.id)]).size
+    ? new Set([...data.projects.map(key), ...compare.projects.map(key)]).size
     : t.projects;
   readout.innerHTML = `
     <div class="total">
@@ -628,10 +712,22 @@ interface SplitRow {
   projectB: ClockworkProject | null;
 }
 
-function buildSplitRows(primary: ClockworkExport, compare: ClockworkExport): SplitRow[] {
+/**
+ * Merge two exports into per-project rows carrying both sides.
+ *
+ * `keyOf` decides what counts as "the same project". File-vs-file comparison
+ * keys by `id` (v1 ids are sha1(path), stable across files). Provider split keys
+ * by path, because v2 ids fold the provider in — so the same path has a
+ * different id under each tool and must be matched on path instead.
+ */
+function buildSplitRows(
+  primary: ClockworkExport,
+  compare: ClockworkExport,
+  keyOf: (p: ClockworkProject) => string = (p) => p.id,
+): SplitRow[] {
   const map = new Map<string, SplitRow>();
   for (const p of primary.projects) {
-    map.set(p.id, {
+    map.set(keyOf(p), {
       id: p.id, name: p.name,
       minutesA: p.totals.minutes, minutesB: 0,
       promptsA: p.totals.prompts, promptsB: 0,
@@ -639,13 +735,13 @@ function buildSplitRows(primary: ClockworkExport, compare: ClockworkExport): Spl
     });
   }
   for (const p of compare.projects) {
-    const existing = map.get(p.id);
+    const existing = map.get(keyOf(p));
     if (existing) {
       existing.minutesB = p.totals.minutes;
       existing.promptsB = p.totals.prompts;
       existing.projectB = p;
     } else {
-      map.set(p.id, {
+      map.set(keyOf(p), {
         id: p.id, name: p.name,
         minutesA: 0, minutesB: p.totals.minutes,
         promptsA: 0, promptsB: p.totals.prompts,
@@ -661,11 +757,18 @@ function buildSplitRows(primary: ClockworkExport, compare: ClockworkExport): Spl
 /** SVG chevron used on each expandable project row. */
 const CHEVRON = `<svg class="chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-function renderProjects(data: ClockworkExport, compare?: ClockworkExport | null): void {
+function renderProjects(
+  data: ClockworkExport,
+  compare?: ClockworkExport | null,
+  mergeByPath = false,
+): void {
   const meter = el('meter');
   if (!meter) return;
 
   const isSplit = !!compare;
+  const keyOf = mergeByPath
+    ? (p: ClockworkProject) => p.path ?? p.name
+    : (p: ClockworkProject) => p.id;
 
   // Build a unified list of rows (handles both normal and split mode)
   type Row = {
@@ -678,7 +781,7 @@ function renderProjects(data: ClockworkExport, compare?: ClockworkExport | null)
 
   let rows: Row[];
   if (isSplit) {
-    const merged = buildSplitRows(data, compare!);
+    const merged = buildSplitRows(data, compare!, keyOf);
     if (!merged.length) {
       meter.innerHTML = `<div class="notice"><span class="notice-mark">idle</span><p class="notice-head">No overlapping projects found.</p></div>`;
       return;
@@ -846,10 +949,10 @@ function renderSampleState(data: ClockworkExport): void {
 
 /** Validate a parsed export and render it, or show a clear error. */
 function show(data: ClockworkExport, source: Source): void {
-  if (data.schema !== EXPECTED_SCHEMA) {
+  if (!isSchemaSupported(data.schema)) {
     renderError(
       `This file reports schema "${data.schema ?? '(missing)'}".`,
-      `meter reads ${EXPECTED_SCHEMA}. Re-export with a current clockwork build.`,
+      `meter reads ${ACCEPTED_SCHEMAS_LABEL}. Re-export with a current clockwork build.`,
     );
     return;
   }
@@ -862,6 +965,7 @@ function show(data: ClockworkExport, source: Source): void {
   _compareData = null;
   _currentSource = source;
   _activePreset = 'all';
+  _providerFilter = 'all';
   _minSession = 0;
   _yMetric = 'minutes';
   _daySort = 'date';
@@ -920,7 +1024,7 @@ function loadFromFile(file: File): void {
       );
       return;
     }
-    if (data.schema !== EXPECTED_SCHEMA) {
+    if (!isSchemaSupported(data.schema)) {
       // Let show() handle the schema error properly
       show(data, { kind: 'upload', filename: file.name });
       return;

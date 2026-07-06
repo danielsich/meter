@@ -216,6 +216,43 @@ export function sortedDaily(daily: DailyEntry[]): DailyEntry[] {
   return [...daily].sort((a, b) => ordinal(a.date) - ordinal(b.date));
 }
 
+/**
+ * Distinct providers present in an export, in a stable display order.
+ * Prefers the top-level `providers[]` (clockwork/v2); otherwise derives the set
+ * from per-project `provider` fields. Returns [] when nothing is tagged (v1).
+ */
+export function providersOf(data: ClockworkExport): string[] {
+  if (Array.isArray(data.providers) && data.providers.length) {
+    return [...new Set(data.providers.filter((p): p is string => typeof p === 'string'))];
+  }
+  const seen: string[] = [];
+  for (const p of data.projects) {
+    if (typeof p.provider === 'string' && !seen.includes(p.provider)) seen.push(p.provider);
+  }
+  return seen.sort();
+}
+
+/**
+ * A copy of the export narrowed to a single provider's projects, with grand
+ * totals recomputed and `provider`/`providers` rewritten to match. Projects
+ * without a `provider` tag (v1) match nothing, so a v1 export narrows to empty.
+ */
+export function filterByProvider(data: ClockworkExport, provider: string): ClockworkExport {
+  const projects = data.projects.filter((p) => p.provider === provider);
+  return {
+    ...data,
+    provider,
+    providers: [provider],
+    projects,
+    totals: {
+      projects: projects.length,
+      minutes: projects.reduce((s, p) => s + p.totals.minutes, 0),
+      prompts: projects.reduce((s, p) => s + p.totals.prompts, 0),
+      sessions: projects.reduce((s, p) => s + p.totals.sessions, 0),
+    },
+  };
+}
+
 export interface DateFilter {
   startDate: string; // YYYY-MM-DD inclusive
   endDate: string;   // YYYY-MM-DD inclusive
