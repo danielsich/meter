@@ -686,7 +686,7 @@ function renderProjects(data: ClockworkExport, compare?: ClockworkExport | null)
         <div class="notice">
           <span class="notice-mark">idle</span>
           <p class="notice-head">No projects on the meter yet.</p>
-          <p class="notice-detail">Run <code>clockwork both export --anonymize &gt; data/clockwork-data.json</code>, then rebuild.</p>
+          <p class="notice-detail">Run <code>clockwork both export &gt; clockwork-data.json</code>, then <strong>Load .json</strong> to view it here.</p>
         </div>`;
       return;
     }
@@ -830,7 +830,7 @@ function renderSampleState(data: ClockworkExport): void {
   const sample = isSampleData(data);
   if (note) {
     note.innerHTML = sample
-      ? `<div class="banner">You're viewing <strong>sample data</strong>. Load your own export with <strong>Load .json</strong>, or follow <strong>How to use meter</strong> below to publish yours.</div>`
+      ? `<div class="banner">You're viewing <strong>sample data</strong>. Load your own clockwork export with <strong>Load .json</strong> — it stays in your browser and is never uploaded.</div>`
       : '';
   }
   if (sample) {

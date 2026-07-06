@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
     <title>Imprint — meter</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       @import url('/fonts/spacegrotesk-latin-ext.woff2');
@@ -38,7 +40,7 @@
       .page {
         max-width: 680px;
         margin: 0 auto;
-        padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem;
+        padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) 3rem;
       }
       header {
         display: flex;
@@ -95,6 +97,21 @@
       .addr .line { display: block; }
       a { color: var(--brass-hi); }
       a:hover { color: var(--paper); }
+      .legal-nav {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 1.5rem clamp(1rem, 4vw, 2rem) 4rem;
+        border-top: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1rem;
+      }
+      .legal-nav a { color: var(--muted); text-decoration: none; }
+      .legal-nav a:hover { color: var(--brass-hi); }
+      .legal-nav a[aria-current] { color: var(--paper); }
       :focus-visible {
         outline: 2px solid var(--brass-hi);
         outline-offset: 2px;
@@ -113,7 +130,7 @@
       </header>
 
       <h1>Imprint</h1>
-      <p class="updated">Information pursuant to § 5 DDG</p>
+      <p class="updated">Information pursuant to § 18 (1) MStV and § 5 DDG</p>
 
       <h2>Operator</h2>
       <address class="addr">
@@ -129,19 +146,15 @@
         Email: <a href="mailto:contact@danielsi.ch">contact@danielsi.ch</a>
       </p>
 
-      <h2>Responsible for content (§ 18 (2) MStV)</h2>
-      <address class="addr">
-        <span class="line">Daniel Sich</span>
-        <span class="line">Freisinger Landstraße 45a</span>
-        <span class="line">85748 Garching bei München</span>
-        <span class="line">Germany</span>
-      </address>
-
       <h2>About this site</h2>
-      <p>meter is a non-commercial, not-for-profit personal project. It sells no goods or services and processes no personal data on a server — see the <a href="/privacy.html">privacy policy</a> for details.</p>
-
-      <h2>Dispute resolution</h2>
-      <p>The operator is neither obliged nor willing to participate in dispute resolution proceedings before a consumer arbitration board (§ 36 VSBG).</p>
+      <p>meter is a free professional showcase — a personal portfolio project that visualizes activity data from the clockwork CLI. It does not sell goods or services, conclude contracts, or process personal data on a server. See the <a href="/privacy.html">privacy policy</a> for how hosting logs and email are handled.</p>
     </div>
+
+    <nav class="legal-nav" aria-label="Legal">
+      <a href="/">← Dashboard</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/imprint.html" aria-current="page">Imprint</a>
+      <a href="/licenses.html">Font licences</a>
+    </nav>
   </body>
 </html>

@@ -27,7 +27,7 @@
             <button id="export" class="btn ghost" type="button">Export PNG</button>
             <button id="load" class="btn" type="button">Load .json</button>
             <button id="reset" class="btn ghost" type="button" hidden>
-              Published data
+              Sample data
             </button>
             <input
               id="file-input"
@@ -44,30 +44,31 @@
       <details id="howto" class="howto">
         <summary>How to use meter</summary>
         <div class="howto-body">
+          <p>
+            This dashboard shows <strong>synthetic sample data</strong>. To view
+            your own activity, load a clockwork export — it stays in your browser
+            and is never uploaded.
+          </p>
           <ol>
             <li>
               Install the CLI:
               <pre><code>pip install clockwork-cli</code></pre>
             </li>
             <li>
-              Generate your data — anonymized, because this site is public:
-              <pre><code>clockwork both export --anonymize &gt; data/clockwork-data.json</code></pre>
+              Generate an export:
+              <pre><code>clockwork both export &gt; clockwork-data.json</code></pre>
               Use <code>claude</code> or <code>codex</code> instead of
-              <code>both</code> for a single tool; drop <code>--anonymize</code>
-              only on a private repo.
+              <code>both</code> to scope to a single tool.
             </li>
             <li>
-              Commit <code>data/clockwork-data.json</code> and push to
-              <code>main</code> — GitHub Actions rebuilds and redeploys
-              automatically.
+              Click <strong>Load .json</strong> above (or drag the file onto the
+              page) to view it here.
             </li>
-            <li>Reload the dashboard.</li>
           </ol>
           <p class="howto-privacy">
-            Privacy: the deployed data is public. <code>--anonymize</code>
-            replaces real project paths with <code>project-N</code>. You can also
-            click <strong>Load .json</strong> to preview an export locally,
-            without deploying.
+            Privacy: your file is read locally with your browser's File API. It
+            never leaves your device — nothing is sent to this site, to GitHub,
+            or anywhere else. See the <a href="/privacy.html">privacy policy</a>.
           </p>
         </div>
       </details>
@@ -92,6 +93,7 @@
           &middot; Not for profit
           &middot; <a href="/privacy.html">Privacy</a>
           &middot; <a href="/imprint.html">Imprint</a>
+          &middot; <a href="/licenses.html">Font licences</a>
         </div>
       </footer>
     </div>

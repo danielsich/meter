@@ -5,12 +5,28 @@
 [![Live](https://img.shields.io/badge/live-meter.danielsich.com-blue)](https://meter.danielsich.com)
 
 A static dashboard for the [**clockwork CLI**](https://github.com/danielsich/clockwork).
-You generate a JSON export locally with clockwork, `meter` bundles it with a
-typed frontend viewer (Vite + TypeScript, no framework), and GitHub Actions
-deploys the compiled `dist/` to GitHub Pages.
+It reads clockwork's `export` output (schema `clockwork/v1`) and renders it with a
+typed, dependency-free frontend viewer (Vite + TypeScript, no framework). GitHub
+Actions deploys the compiled `dist/` to GitHub Pages.
 
 This repository is **independent of the clockwork source** — it only reads
-clockwork's `export` output (schema `clockwork/v1`); it does not contain the CLI.
+clockwork's `export` output; it does not contain the CLI.
+
+## Sample-only by design
+
+The deployed site is a **public career showcase**, so the data it ships is
+**synthetic**. On every build, `scripts/prepare-data.mjs` generates a shape-valid
+`clockwork/v1` sample (`provider: "sample"`) relative to the build date, so
+streaks and the 12-week calendar always look current. No real activity data is
+ever bundled into the build.
+
+Anyone can still view **their own** export in the browser — see
+[Load your own export](#load-your-own-export). That file is read locally and
+**never uploaded**, so there is intentionally no workflow for publishing personal
+data to the deployed site.
+
+> **Never commit `data/clockwork-data.json`.** It is git-ignored, and CI fails the
+> deploy if it is ever checked in, so personal data cannot reach GitHub Pages.
 
 ## Features
 
@@ -30,93 +46,35 @@ clockwork's `export` output (schema `clockwork/v1`); it does not contain the CLI
 Charts are built with CSS and inline SVG — no charting library, no runtime
 dependencies. Features degrade gracefully when an export omits a field.
 
-## The full loop
+## Load your own export
 
-1. **Generate** the data locally with clockwork.
-2. **Commit** `data/clockwork-data.json` and push to `main`.
-3. GitHub Actions **builds** and **deploys** the static site to Pages.
-
-The deployed site shows the published data by default, but **anyone can also
-load their own export in the browser** — see [Load a file without
-deploying](#load-a-file-without-deploying).
-
----
-
-## One-time setup
-
-Enable Pages **before your first push**, or the first deploy fails:
-
-> **Settings → Pages → Source → “GitHub Actions.”**
-
-## Generate the data locally
-
-The site is public, so anonymize before exporting:
-
-```bash
-clockwork both export --anonymize > data/clockwork-data.json
-```
-
-- Use `claude` or `codex` instead of `both` to scope to one provider.
-- You may drop `--anonymize` **only** if the repo is private, or you knowingly
-  accept publishing real project paths.
-
-`data/clockwork-data.json` is the **canonical source**. On every build,
-`scripts/prepare-data.mjs` copies it into `public/clockwork-data.json` (which is
-git-ignored and regenerated each build). If `data/clockwork-data.json` is
-missing, a shape-valid **sample placeholder** is written instead, so a fresh
-clone still builds and renders rather than erroring.
-
-## ⚠️ Privacy warning
-
-**GitHub Pages is public.** The JSON is served publicly **and stays in git
-history permanently.** Without `--anonymize`, the export contains your real
-project folder paths — anonymized exports replace them with `project-N` display
-names. Only publish an un-anonymized export from a private repo you control.
-
-## Deploy
-
-Commit the data and the lockfile, then push:
-
-```bash
-git add data/clockwork-data.json package-lock.json
-git commit -m "Update clockwork data"
-git push origin main
-```
-
-Or trigger the **Deploy to GitHub Pages** workflow manually from the Actions tab
-(`workflow_dispatch`).
-
-## Load a file without deploying
-
-You don't have to deploy to view an export. On any running instance of the site
-(local or deployed), visitors can view their own clockwork data:
+You don't need to deploy anything to view your data. On any running instance of
+the site (local or deployed):
 
 - Click **Load .json** in the header and pick a file, **or**
 - **Drag a `.json` file anywhere onto the page.**
 
 The file is read **entirely in the browser** with the File API — it is **never
 uploaded to a server or to GitHub**. It replaces what's on screen for that
-session only; **Published data** returns to the deployed export. The same schema
-guard applies, so a non-`clockwork/v1` file shows a clear message instead of
-rendering.
+session only; **Sample data** returns to the built-in sample. A non-`clockwork/v1`
+file shows a clear message instead of rendering.
 
-This makes the deployed site usable as a plain viewer: point people at it and
-they can inspect their own export without touching the repo.
+Generate an export with clockwork:
 
-## Base path
+```bash
+clockwork both export > clockwork-data.json
+```
 
-`vite.config.ts` sets `base: '/meter/'` to match the Pages subpath (the repo
-name). **If you rename the repo, update `base` to match** — otherwise the
-bundled JS/CSS assets 404 in production.
+Use `claude` or `codex` instead of `both` to scope to a single provider.
 
 ## Local development
 
 ```bash
 npm install       # first time — also creates package-lock.json (commit it)
-npm run dev       # Vite serves at http://localhost:5173/meter/
+npm run dev       # Vite serves at http://localhost:5173/
 ```
 
-The `dev` script runs `prepare-data.mjs` automatically, so the data is ready
+The `dev` script runs `prepare-data.mjs` first, so the sample data is ready
 before Vite starts.
 
 Production preview (build, then serve `dist/` locally):
@@ -124,6 +82,16 @@ Production preview (build, then serve `dist/` locally):
 ```bash
 npm run build && npm run preview
 ```
+
+## Deploy
+
+Push to `main` (or trigger the **Deploy to GitHub Pages** workflow manually from
+the Actions tab). GitHub Actions builds the site — regenerating the sample data —
+and deploys `dist/` to Pages.
+
+Enable Pages **before your first push**, or the first deploy fails:
+
+> **Settings → Pages → Source → “GitHub Actions.”**
 
 ## Data contract
 
@@ -134,11 +102,11 @@ anything else, it shows a clear error instead of crashing.
 {
   "schema": "clockwork/v1",
   "generated_at": "2026-07-06T00:30:00+02:00",
-  "provider": "both",                 // claude | codex | both
+  "provider": "both",                 // claude | codex | both | sample
   "projects": [
     {
       "id": "0ac6be84",
-      "name": "project-1",            // display name ("project-N" when anonymized)
+      "name": "project-1",            // display name
       "totals": { "minutes": 1234.76, "prompts": 1646, "sessions": 27, "active_days": 12 }
     }
   ],
@@ -147,23 +115,28 @@ anything else, it shows a clear error instead of crashing.
 ```
 
 Projects are listed sorted by `totals.minutes` descending. Extra per-project
-fields (`path`, `daily`, `sessions`, `prompts`) are optional and ignored by the
-MVP viewer.
+fields (`path`, `daily`, `sessions`, `prompts`) are optional and used by the
+drill-downs when present.
 
 ## Project structure
 
 ```
 meter/
 ├─ index.html                # Vite entry
-├─ vite.config.ts            # base: '/meter/'
+├─ vite.config.ts            # base: '/', build-time CSP injection
 ├─ tsconfig.json             # strict vanilla-ts
 ├─ package.json
-├─ data/.gitkeep             # put clockwork-data.json here (canonical source)
-├─ public/                   # prepare-data writes clockwork-data.json here at build
+├─ public/
+│  ├─ privacy.html           # GDPR Art. 13 privacy notice
+│  ├─ imprint.html           # § 18(1) MStV / § 5 DDG imprint
+│  ├─ licenses.html          # OFL-1.1 font licence notice
+│  ├─ fonts/                 # self-hosted Space Grotesk + JetBrains Mono
+│  └─ clockwork-data.json    # generated sample, written by prepare-data at build (git-ignored)
 ├─ src/
 │  ├─ main.ts                # app logic + rendering
+│  ├─ stats.ts               # streaks, ranges, aggregation
 │  ├─ styles.css             # dark-mode styling
 │  └─ clockwork.ts           # ClockworkExport / ClockworkProject types
-├─ scripts/prepare-data.mjs  # copies data → public, with dummy fallback
+├─ scripts/prepare-data.mjs  # generates the synthetic sample into public/
 └─ .github/workflows/deploy.yml
 ```

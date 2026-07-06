@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
     <title>Privacy — meter</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       @import url('/fonts/spacegrotesk-latin-ext.woff2');
@@ -38,7 +40,7 @@
       .page {
         max-width: 680px;
         margin: 0 auto;
-        padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem;
+        padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) 3rem;
       }
       header {
         display: flex;
@@ -91,8 +93,27 @@
         margin: 2.5rem 0 0.6rem;
       }
       p { margin: 0 0 1rem; color: var(--paper); }
+      ul { margin: 0 0 1rem; padding-left: 1.2rem; }
+      li { margin: 0 0 0.4rem; }
       a { color: var(--brass-hi); }
       a:hover { color: var(--paper); }
+      .addr { font-style: normal; }
+      .addr .line { display: block; }
+      .legal-nav {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 1.5rem clamp(1rem, 4vw, 2rem) 4rem;
+        border-top: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1rem;
+      }
+      .legal-nav a { color: var(--muted); text-decoration: none; }
+      .legal-nav a:hover { color: var(--brass-hi); }
+      .legal-nav a[aria-current] { color: var(--paper); }
       :focus-visible {
         outline: 2px solid var(--brass-hi);
         outline-offset: 2px;
@@ -113,24 +134,75 @@
       <h1>Privacy policy</h1>
       <p class="updated">Last updated: July 6, 2026</p>
 
-      <h2>What this site does</h2>
-      <p>meter is a static dashboard that visualizes activity data from the <a href="https://github.com/danielsich/clockwork" target="_blank" rel="noopener">clockwork CLI</a>. It runs entirely in your browser. The <a href="https://github.com/danielsich/meter" target="_blank" rel="noopener">source code is publicly available</a> — you can verify all privacy claims directly.</p>
+      <h2>Who is responsible (controller)</h2>
+      <p>The controller for the processing described below, within the meaning of Art. 4(7) GDPR, is:</p>
+      <address class="addr">
+        <span class="line">Daniel Sich</span>
+        <span class="line">Freisinger Landstraße 45a</span>
+        <span class="line">85748 Garching bei München</span>
+        <span class="line">Germany</span>
+      </address>
+      <p>
+        Email: <a href="mailto:contact@danielsi.ch">contact@danielsi.ch</a><br />
+        Phone: <a href="tel:+4915783484324">+49 1578 3484324</a>
+      </p>
 
-      <h2>Data you load</h2>
-      <p>If you use <strong>Load .json</strong> or drag a file onto the page, that file is read locally by your browser. It is never uploaded to any server.</p>
+      <h2>Overview</h2>
+      <p>meter is a static personal career showcase that visualizes activity data from the <a href="https://github.com/danielsich/clockwork" target="_blank" rel="noopener noreferrer">clockwork CLI</a>. It runs entirely in your browser. The data shown by default is <strong>synthetic sample data</strong> generated at build time — it describes no real person or project. There are no analytics, no tracking pixels, no cookies, no non-essential browser storage, no automated decision-making or profiling, and no advertising or marketing. The <a href="https://github.com/danielsich/meter" target="_blank" rel="noopener noreferrer">source code is public</a>, so every claim here can be verified.</p>
+      <p>Two kinds of processing are unavoidable for a website to exist at all — hosting logs and email you send us. Both are described below.</p>
 
-      <h2>Data this site collects</h2>
-      <p>None. meter has no analytics, no tracking pixels, no cookies, and no server that receives your data. The published dashboard data (if any) is a static file committed to the repository — it is public by nature of GitHub Pages.</p>
+      <h2>Website hosting &amp; server logs (GitHub Pages)</h2>
+      <p>This site is hosted on <strong>GitHub Pages</strong>, a service of GitHub, Inc. (88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). When your browser requests a page, GitHub's servers automatically process:</p>
+      <ul>
+        <li>your IP address;</li>
+        <li>request metadata such as date and time, the requested URL/file, HTTP status, referrer, and user-agent (browser and operating system).</li>
+      </ul>
+      <p><strong>Purposes:</strong> delivering the requested content and maintaining the security, integrity and availability of the service (e.g. defending against attacks and abuse).</p>
+      <p><strong>Legal basis:</strong> Art. 6(1)(f) GDPR. Our legitimate interest is providing a functioning, secure website; a web server cannot deliver content without processing the requesting IP address.</p>
+      <p><strong>Recipient:</strong> GitHub, Inc., acting as hosting provider. GitHub confirms that GitHub Pages logs visitor IP addresses (see <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages" target="_blank" rel="noopener noreferrer">About GitHub Pages</a>).</p>
+      <p><strong>Transfer to a third country:</strong> processing may take place in the USA. GitHub, Inc. is certified under the EU-US Data Privacy Framework (DPF) and/or relies on the EU Standard Contractual Clauses (SCC) as appropriate safeguards under Art. 44 ff. GDPR. See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">GitHub's Privacy Statement</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-data-protection-agreement" target="_blank" rel="noopener noreferrer">Data Protection Agreement</a>.</p>
+      <p><strong>Retention:</strong> we operate no server and receive no copy of these logs. Any retention is determined by GitHub under its own policies; logs are typically kept only for the period necessary for delivery and security purposes and then deleted or anonymized.</p>
 
-      <h2>Third-party services</h2>
-      <p><strong>GitHub Pages</strong> serves this site. GitHub may log standard request metadata (IP address, user-agent, referrer). See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's privacy statement</a>.</p>
-      <p>Fonts (Space Grotesk and JetBrains Mono) are self-hosted and served directly from this site. No requests are made to Google Fonts or any other font CDN.</p>
+      <h2>Contacting us by email (Proton Mail)</h2>
+      <p>If you email <a href="mailto:contact@danielsi.ch">contact@danielsi.ch</a>, we process the data contained in and attached to your message:</p>
+      <ul>
+        <li>your sender address and any recipients;</li>
+        <li>the subject line;</li>
+        <li>date and time (timestamps);</li>
+        <li>the content of your message and any attachments.</li>
+      </ul>
+      <p><strong>Purposes:</strong> receiving, reading and answering your inquiry and any follow-up correspondence.</p>
+      <p><strong>Legal basis:</strong> Art. 6(1)(b) GDPR where your message concerns steps prior to or the performance of a contract or (pre-)contractual relationship; otherwise Art. 6(1)(f) GDPR, our legitimate interest in responding to inquiries directed at us.</p>
+      <p><strong>Processor:</strong> the mailbox is operated by Proton AG (Route de la Galaise 32, 1228 Plan-les-Ouates, Geneva, Switzerland). Data is stored on servers in Switzerland and the European Union. Switzerland is recognized by the European Commission as providing an adequate level of data protection (Art. 45 GDPR). See Proton's <a href="https://proton.me/mail/privacy-policy" target="_blank" rel="noopener noreferrer">Mail privacy policy</a>.</p>
+      <p><strong>Retention:</strong> we delete ordinary inquiries no later than <strong>six months</strong> after the matter is closed, unless a longer period is required to assert, exercise or defend legal claims, or to comply with statutory retention obligations.</p>
 
-      <h2>Cookies</h2>
-      <p>This site sets no cookies.</p>
+      <h2>Files you load and images you export</h2>
+      <p>If you use <strong>Load .json</strong> or drag a clockwork export onto the page, that file is read locally by your browser using the File API. <strong>It is never uploaded</strong> to us, to GitHub, or to any other server. PNG images created with <strong>Export PNG</strong> are generated in your browser and downloaded directly to your device. We neither receive nor store any of this content.</p>
 
-      <h2>Contact</h2>
-      <p>Questions? <a href="mailto:contact@danielsi.ch">contact@danielsi.ch</a></p>
+      <h2>Cookies and browser storage</h2>
+      <p>This site sets no cookies and stores nothing in local storage or session storage. No consent banner is required because no non-essential information is stored on or read from your device (§ 25 TDDDG).</p>
+
+      <h2>Your rights</h2>
+      <p>Under the GDPR you have the right to request access (Art. 15), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18) and data portability (Art. 20), and — where processing is based on Art. 6(1)(f) — the right to <strong>object</strong> to that processing on grounds relating to your particular situation (Art. 21). Where processing rests on consent, you may withdraw it at any time with effect for the future. To exercise any of these rights, contact us using the details above.</p>
+
+      <h2>Right to complain</h2>
+      <p>You have the right to lodge a complaint with a supervisory authority (Art. 77 GDPR). The authority responsible for the controller is:</p>
+      <address class="addr">
+        <span class="line">Bayerisches Landesamt für Datenschutzaufsicht (BayLDA)</span>
+        <span class="line">Promenade 18</span>
+        <span class="line">91522 Ansbach, Germany</span>
+        <span class="line"><a href="https://www.lda.bayern.de" target="_blank" rel="noopener noreferrer">www.lda.bayern.de</a></span>
+      </address>
+
+      <h2>Changes</h2>
+      <p>We may update this policy if the site or the processing described changes. The date at the top reflects the current version.</p>
     </div>
+
+    <nav class="legal-nav" aria-label="Legal">
+      <a href="/">← Dashboard</a>
+      <a href="/privacy.html" aria-current="page">Privacy</a>
+      <a href="/imprint.html">Imprint</a>
+      <a href="/licenses.html">Font licences</a>
+    </nav>
   </body>
 </html>

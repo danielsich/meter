@@ -3,3 +3,7 @@ dist/
 
 # Regenerated on every build by scripts/prepare-data.mjs — never commit.
 public/clockwork-data.json
+
+# Production is sample-only by design. A real clockwork export must never be
+# committed here — CI rejects it (see .github/workflows/deploy.yml).
+data/clockwork-data.json

@@ -23,6 +23,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Production is sample-only by design. Fail loudly if a real clockwork
+      # export was ever committed, so personal data can't reach GitHub Pages.
+      - name: Reject committed production data
+        run: |
+          if git ls-files --error-unmatch data/clockwork-data.json >/dev/null 2>&1; then
+            echo "::error file=data/clockwork-data.json::data/clockwork-data.json is committed. This site is a sample-only public showcase — production data must be synthetic. Remove it with 'git rm --cached data/clockwork-data.json' (it is git-ignored)."
+            exit 1
+          fi
+
       - uses: actions/setup-node@v6
         with:
           node-version: 24

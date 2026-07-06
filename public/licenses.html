@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Font licences — meter</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style>
+      @import url('/fonts/spacegrotesk-latin-ext.woff2');
+      @font-face { font-family: 'Space Grotesk'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/spacegrotesk-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: 'Space Grotesk'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/spacegrotesk-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+      @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/jetbrainsmono-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+      @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/jetbrainsmono-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    </style>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #10151a;
+        --panel: #171e25;
+        --line: #2b3743;
+        --paper: #e8e4d9;
+        --muted: #8a97a2;
+        --brass: #d8a24a;
+        --brass-hi: #f0c46a;
+        --display: 'Space Grotesk', system-ui, sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(120% 90% at 50% -10%, #18212a 0%, var(--ink) 60%) fixed;
+        color: var(--paper);
+        font-family: var(--display);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      .page {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) 3rem;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding-bottom: 1.1rem;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 3rem;
+      }
+      .wordmark { display: flex; align-items: baseline; gap: 0.7rem; }
+      .mark {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        padding-bottom: 0.15rem;
+        border-bottom: 2px solid var(--brass);
+      }
+      .sub {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      nav a {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        text-decoration: none;
+      }
+      nav a:hover { color: var(--brass-hi); }
+      h1 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.25rem;
+      }
+      .updated {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 2.5rem;
+      }
+      h2 {
+        font-size: 0.8rem;
+        font-family: var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--brass-hi);
+        margin: 2.5rem 0 0.6rem;
+      }
+      p { margin: 0 0 1rem; color: var(--paper); }
+      a { color: var(--brass-hi); }
+      a:hover { color: var(--paper); }
+      .copyright {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: var(--paper);
+        margin: 0 0 0.4rem;
+      }
+      .license {
+        margin: 1.5rem 0 0;
+        padding: 1.25rem 1.4rem;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+      .license pre {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 0.74rem;
+        line-height: 1.7;
+        color: var(--paper);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .legal-nav {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 1.5rem clamp(1rem, 4vw, 2rem) 4rem;
+        border-top: 1px solid var(--line);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1rem;
+      }
+      .legal-nav a { color: var(--muted); text-decoration: none; }
+      .legal-nav a:hover { color: var(--brass-hi); }
+      .legal-nav a[aria-current] { color: var(--paper); }
+      :focus-visible {
+        outline: 2px solid var(--brass-hi);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="wordmark">
+          <span class="mark">meter</span>
+          <span class="sub">clockwork readout</span>
+        </div>
+        <nav><a href="/">← back</a></nav>
+      </header>
+
+      <h1>Font licences</h1>
+      <p class="updated">Third-party notices</p>
+
+      <p>meter self-hosts two typefaces, both licensed under the SIL Open Font License, Version 1.1. The OFL requires that each copy of the fonts be accompanied by the copyright notice and the licence. Both are reproduced in full below.</p>
+
+      <h2>Space Grotesk</h2>
+      <p class="copyright">Copyright 2020 The Space Grotesk Project Authors (<a href="https://github.com/floriankarsten/space-grotesk" target="_blank" rel="noopener noreferrer">https://github.com/floriankarsten/space-grotesk</a>)</p>
+
+      <h2>JetBrains Mono</h2>
+      <p class="copyright">Copyright 2020 The JetBrains Mono Project Authors (<a href="https://github.com/JetBrains/JetBrainsMono" target="_blank" rel="noopener noreferrer">https://github.com/JetBrains/JetBrainsMono</a>)</p>
+
+      <h2>SIL Open Font License 1.1</h2>
+      <div class="license">
+<pre>Copyright 2020 The Space Grotesk Project Authors (https://github.com/floriankarsten/space-grotesk)
+
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+https://openfontlicense.org
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply to any
+document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.</pre>
+      </div>
+    </div>
+
+    <nav class="legal-nav" aria-label="Legal">
+      <a href="/">← Dashboard</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/imprint.html">Imprint</a>
+      <a href="/licenses.html" aria-current="page">Font licences</a>
+    </nav>
+  </body>
+</html>
