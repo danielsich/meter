@@ -18,8 +18,12 @@ import {
   type DateFilter,
   type RangePreset,
 } from './stats';
-
-const EXPECTED_SCHEMA = 'clockwork/v1';
+import {
+  EXPECTED_SCHEMA,
+  MAX_FILE_BYTES,
+  escapeHtml,
+  structuralError,
+} from './validate';
 
 /** Format a duration in minutes as "Xh Ym" (e.g. 1234.76 → "20h 34m"). */
 export function formatMinutes(m: number): string {
@@ -85,13 +89,20 @@ function shortDate(dateStr: string): string {
   });
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+/**
+ * Project deep-links live in the URL *fragment* (`#project=…`), never the query
+ * string. A fragment is not transmitted to the server, so reloading or sharing a
+ * link to an uploaded project never discloses its id to the host's request logs
+ * — keeping the "your file never leaves the browser" promise intact.
+ */
+function setProjectDeepLink(id: string | null): void {
+  const base = location.pathname + location.search;
+  const target = id ? `${base}#project=${encodeURIComponent(id)}` : base;
+  history.replaceState(null, '', target);
+}
+
+function readProjectDeepLink(): string | null {
+  return new URLSearchParams(location.hash.replace(/^#/, '')).get('project');
 }
 
 /** Round `range` to a "nice" 1/2/5×10ⁿ value for tick spacing. */
@@ -329,8 +340,8 @@ function contributionHTML(data: ClockworkExport): string {
           if (cell.inFuture) return `<span class="cell empty"></span>`;
           const time =
             cell.minutes > 0 ? formatMinutes(cell.minutes) : 'no activity';
-          return `<span class="cell lvl-${cell.level}" title="${formatDayLabel(
-            cell.dateStr,
+          return `<span class="cell lvl-${cell.level}" title="${escapeHtml(
+            formatDayLabel(cell.dateStr),
           )} — ${time}"></span>`;
         })
         .join(''),
@@ -460,7 +471,7 @@ function dayBarsHTML(daily: DailyEntry[]): string {
         : `${formatNumber(d.prompts)}<span class="unit">p</span>`;
       return `
       <div class="daybar">
-        <span class="db-date">${shortDate(d.date)}</span>
+        <span class="db-date">${escapeHtml(shortDate(d.date))}</span>
         <span class="db-track"><span class="db-fill" style="width:${w}%"></span></span>
         <span class="db-min">${primary}</span>
         <span class="db-p">${secondary}</span>
@@ -784,13 +795,7 @@ function wireDrilldowns(container: HTMLElement): void {
     panel?.setAttribute('aria-hidden', String(!open));
 
     if (updateUrl) {
-      const url = new URL(location.href);
-      if (open && item?.dataset.projectId) {
-        url.searchParams.set('project', item.dataset.projectId);
-      } else {
-        url.searchParams.delete('project');
-      }
-      history.replaceState(null, '', url);
+      setProjectDeepLink(open && item?.dataset.projectId ? item.dataset.projectId : null);
     }
   };
 
@@ -808,7 +813,7 @@ function wireDrilldowns(container: HTMLElement): void {
     if (!copyBtn) return;
     const id = copyBtn.dataset.copyLink ?? '';
     const url = new URL(location.href);
-    url.searchParams.set('project', id);
+    url.hash = `project=${encodeURIComponent(id)}`;
     navigator.clipboard.writeText(url.href).then(() => {
       copyBtn.classList.add('copied');
       setTimeout(() => copyBtn.classList.remove('copied'), 1600);
@@ -837,26 +842,6 @@ function renderSampleState(data: ClockworkExport): void {
     const howto = el('howto') as HTMLDetailsElement | null;
     if (howto) howto.open = true;
   }
-}
-
-/**
- * Cheap structural guard for parsed exports. Confirms the shape the renderers
- * assume (arrays where they iterate, objects where they read totals) so a
- * malformed file fails with a readable message instead of a stack trace.
- * Field-level escaping/coercion at render time handles hostile values within a
- * well-shaped file; this only rejects the wrong shape.
- */
-function structuralError(data: unknown): string | null {
-  if (typeof data !== 'object' || data === null) return 'Expected a JSON object at the top level.';
-  const d = data as Record<string, unknown>;
-  if (!Array.isArray(d.projects)) return 'Missing a "projects" array.';
-  if (typeof d.totals !== 'object' || d.totals === null) return 'Missing a "totals" object.';
-  for (const p of d.projects as unknown[]) {
-    if (typeof p !== 'object' || p === null) return 'A "projects" entry is not an object.';
-    const totals = (p as Record<string, unknown>).totals;
-    if (typeof totals !== 'object' || totals === null) return 'A project is missing its "totals" object.';
-  }
-  return null;
 }
 
 /** Validate a parsed export and render it, or show a clear error. */
@@ -914,6 +899,14 @@ async function loadPublished(): Promise<void> {
 
 /** Read and render a file the visitor picked or dropped, entirely in-browser. */
 function loadFromFile(file: File): void {
+  if (file.size > MAX_FILE_BYTES) {
+    setResetVisible(true);
+    renderError(
+      `"${file.name}" is too large to open.`,
+      `meter caps loaded files at ${Math.round(MAX_FILE_BYTES / (1024 * 1024))} MB. A clockwork export is far smaller — check you picked the right file.`,
+    );
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     setResetVisible(true);
@@ -971,9 +964,9 @@ function clearCompare(): void {
   }
 }
 
-/** Open the project matching ?project= in the URL after rendering. */
+/** Open the project matching #project= in the URL fragment after rendering. */
 function initDeepLink(): void {
-  const id = new URLSearchParams(location.search).get('project');
+  const id = readProjectDeepLink();
   if (!id) return;
   const item = document.querySelector<HTMLElement>(
     `.row-item[data-project-id="${CSS.escape(id)}"]`,
