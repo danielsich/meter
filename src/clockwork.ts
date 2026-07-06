@@ -18,6 +18,9 @@ export interface ClockworkProjectTotals {
   prompts: number;
   sessions: number;
   active_days: number;
+  /** Epoch seconds — present in clockwork/v1 exports with --detail daily or richer. */
+  first?: number;
+  last?: number;
 }
 
 /** One calendar day of activity (date is YYYY-MM-DD in `daily_tz`, i.e. UTC). */
@@ -41,8 +44,9 @@ export interface ClockworkProject {
   name: string;
   totals: ClockworkProjectTotals;
   path?: string;
-  /** First/last activity as epoch seconds, when the export provides them. */
+  /** @deprecated first/last moved to totals in clockwork/v1. Kept for older exports. */
   first?: number;
+  /** @deprecated first/last moved to totals in clockwork/v1. Kept for older exports. */
   last?: number;
   /** Present at --detail daily and richer. */
   daily?: DailyEntry[];
@@ -66,6 +70,13 @@ export interface ClockworkExport {
   provider: ClockworkProvider;
   /** Timezone the `daily[].date` strings are bucketed in; "UTC" in v1. */
   daily_tz?: string;
+  /** Export detail level: "raw" | "sessions" | "daily". */
+  detail?: string;
+  anonymized?: boolean;
+  idle_threshold_min?: number;
+  /** ISO bound if --since was given, else null. */
+  since?: string | null;
+  until?: string | null;
   projects: ClockworkProject[];
   totals: ClockworkGrandTotals;
 }

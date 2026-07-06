@@ -185,6 +185,66 @@ body {
   color: var(--muted);
 }
 
+/* ── Date range filter bar ────────────────────────────── */
+.range-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 1.1rem 0 0;
+  min-height: 1.8rem; /* reserve space before data loads */
+}
+
+.range-btn {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.22rem 0.65rem;
+  cursor: pointer;
+  transition:
+    background 0.13s ease,
+    color 0.13s ease,
+    border-color 0.13s ease;
+}
+
+.range-btn:hover:not(:disabled) {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+}
+
+.range-btn.active {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+  background: var(--brass-fill);
+}
+
+.range-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.range-hint {
+  margin-left: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.range-hint code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  color: var(--paper);
+  background: var(--channel);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
 /* ── Readout ──────────────────────────────────────────── */
 .readout {
   display: flex;
@@ -874,6 +934,67 @@ body.dragging .dropzone {
 
 .db-p .unit {
   color: var(--muted);
+}
+
+/* ── Session rhythm scatter ───────────────────────────── */
+.scatter-wrap {
+  overflow: hidden;
+}
+
+.scatter {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* ── Drill-down header + copy-link ────────────────────── */
+.drill-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.65rem;
+}
+
+.copy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  cursor: pointer;
+  transition:
+    color 0.13s ease,
+    border-color 0.13s ease,
+    background 0.13s ease;
+}
+
+.copy-link:hover {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+}
+
+.copy-link.copied {
+  color: var(--patina);
+  border-color: var(--patina);
+}
+
+.copy-link.copied .copy-label::after {
+  content: 'Copied!';
+}
+
+.copy-link:not(.copied) .copy-label::after {
+  content: 'Copy link';
+}
+
+.copy-label {
+  /* text toggled via ::after pseudo-element */
+  font-size: 0;
 }
 
 /* ── Footer ───────────────────────────────────────────── */

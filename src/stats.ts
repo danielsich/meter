@@ -2,7 +2,7 @@
  * Pure computation for the dashboard: streaks, calendar intensities, and
  * hour-of-day histograms. No DOM here — everything is testable in isolation.
  */
-import type { ClockworkExport, ClockworkProject, DailyEntry } from './clockwork';
+import type { ClockworkExport, ClockworkProject, DailyEntry, SessionEntry } from './clockwork';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -168,6 +168,9 @@ export function projectRange(p: ClockworkProject): {
   first?: number;
   last?: number;
 } {
+  if (typeof p.totals.first === 'number' && typeof p.totals.last === 'number') {
+    return { first: p.totals.first, last: p.totals.last };
+  }
   if (typeof p.first === 'number' && typeof p.last === 'number') {
     return { first: p.first, last: p.last };
   }
@@ -187,7 +190,94 @@ export function projectRange(p: ClockworkProject): {
   return {};
 }
 
+/** Aggregate every session across all projects. */
+export function allSessions(data: ClockworkExport): SessionEntry[] {
+  const result: SessionEntry[] = [];
+  for (const p of data.projects) {
+    if (p.sessions) result.push(...p.sessions);
+  }
+  return result;
+}
+
 /** Sort a project's daily entries chronologically (does not mutate input). */
 export function sortedDaily(daily: DailyEntry[]): DailyEntry[] {
   return [...daily].sort((a, b) => ordinal(a.date) - ordinal(b.date));
+}
+
+export interface DateFilter {
+  startDate: string; // YYYY-MM-DD inclusive
+  endDate: string;   // YYYY-MM-DD inclusive
+}
+
+export type RangePreset = '7d' | '30d' | '90d';
+
+export function presetToFilter(preset: RangePreset): DateFilter {
+  const today = todayOrdinalUTC();
+  const days = preset === '7d' ? 7 : preset === '30d' ? 30 : 90;
+  return {
+    startDate: ordinalToDateStr(today - days + 1),
+    endDate: ordinalToDateStr(today),
+  };
+}
+
+/** True if any project has daily-level data (required for date filtering). */
+export function hasDateData(data: ClockworkExport): boolean {
+  return data.projects.some((p) => p.daily && p.daily.length > 0);
+}
+
+/**
+ * Return a copy of the export filtered to the given date range.
+ * Projects with no activity in the range are dropped.
+ * Projects without daily data are kept as-is (can't be filtered accurately).
+ */
+export function filterExport(
+  data: ClockworkExport,
+  filter: DateFilter,
+): ClockworkExport {
+  const startOrd = ordinal(filter.startDate);
+  const endOrd = ordinal(filter.endDate);
+
+  const inRange = (dayOrd: number) => dayOrd >= startOrd && dayOrd <= endOrd;
+
+  const projects = data.projects.flatMap((p) => {
+    if (!p.daily || p.daily.length === 0) return [p];
+
+    const daily = p.daily.filter((d) => inRange(ordinal(d.date)));
+    const filteredMinutes = daily.reduce((s, d) => s + d.minutes, 0);
+    if (filteredMinutes === 0) return [];
+
+    const sessions = p.sessions?.filter((s) =>
+      inRange(Math.floor(s.start / 86400)),
+    );
+    const prompts = p.prompts?.filter((ts) =>
+      inRange(Math.floor(ts / 86400)),
+    );
+
+    return [
+      {
+        ...p,
+        daily,
+        sessions,
+        prompts,
+        totals: {
+          ...p.totals,
+          minutes: filteredMinutes,
+          prompts: daily.reduce((s, d) => s + d.prompts, 0),
+          sessions: sessions?.length ?? p.totals.sessions,
+          active_days: daily.length,
+        },
+      },
+    ];
+  });
+
+  return {
+    ...data,
+    projects,
+    totals: {
+      projects: projects.length,
+      minutes: projects.reduce((s, p) => s + p.totals.minutes, 0),
+      prompts: projects.reduce((s, p) => s + p.totals.prompts, 0),
+      sessions: projects.reduce((s, p) => s + p.totals.sessions, 0),
+    },
+  };
 }
