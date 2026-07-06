@@ -1,6 +1,8 @@
 # meter
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/danielsich/meter)
+[![Deploy](https://github.com/danielsich/meter/actions/workflows/deploy.yml/badge.svg)](https://github.com/danielsich/meter/actions/workflows/deploy.yml)
+[![Live](https://img.shields.io/badge/live-meter.danielsich.com-blue)](https://meter.danielsich.com)
 
 A static dashboard for the [**clockwork CLI**](https://github.com/danielsich/clockwork).
 You generate a JSON export locally with clockwork, `meter` bundles it with a
