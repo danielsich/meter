@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy — meter</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #10151a;
+        --panel: #171e25;
+        --line: #2b3743;
+        --paper: #e8e4d9;
+        --muted: #8a97a2;
+        --brass: #d8a24a;
+        --brass-hi: #f0c46a;
+        --display: 'Space Grotesk', system-ui, sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(120% 90% at 50% -10%, #18212a 0%, var(--ink) 60%) fixed;
+        color: var(--paper);
+        font-family: var(--display);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      .page {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: clamp(1.5rem, 5vw, 3.5rem) clamp(1rem, 4vw, 2rem) 5rem;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding-bottom: 1.1rem;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 3rem;
+      }
+      .wordmark { display: flex; align-items: baseline; gap: 0.7rem; }
+      .mark {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        padding-bottom: 0.15rem;
+        border-bottom: 2px solid var(--brass);
+      }
+      .sub {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      nav a {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        text-decoration: none;
+      }
+      nav a:hover { color: var(--brass-hi); }
+      h1 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.25rem;
+      }
+      .updated {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 2.5rem;
+      }
+      h2 {
+        font-size: 0.8rem;
+        font-family: var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--brass-hi);
+        margin: 2.5rem 0 0.6rem;
+      }
+      p { margin: 0 0 1rem; color: var(--paper); }
+      a { color: var(--brass-hi); }
+      a:hover { color: var(--paper); }
+      :focus-visible {
+        outline: 2px solid var(--brass-hi);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="wordmark">
+          <span class="mark">meter</span>
+          <span class="sub">clockwork readout</span>
+        </div>
+        <nav><a href="/">← back</a></nav>
+      </header>
+
+      <h1>Privacy policy</h1>
+      <p class="updated">Last updated: July 6, 2026</p>
+
+      <h2>What this site does</h2>
+      <p>meter is a static dashboard that visualizes activity data from the <a href="https://github.com/danielsich/clockwork" target="_blank" rel="noopener">clockwork CLI</a>. It runs entirely in your browser.</p>
+
+      <h2>Data you load</h2>
+      <p>If you use <strong>Load .json</strong> or drag a file onto the page, that file is read locally by your browser. It is never uploaded to any server.</p>
+
+      <h2>Data this site collects</h2>
+      <p>None. meter has no analytics, no tracking pixels, no cookies, and no server that receives your data. The published dashboard data (if any) is a static file committed to the repository — it is public by nature of GitHub Pages.</p>
+
+      <h2>Third-party services</h2>
+      <p><strong>GitHub Pages</strong> serves this site. GitHub may log standard request metadata (IP address, user-agent, referrer). See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's privacy statement</a>.</p>
+      <p><strong>Google Fonts</strong> is loaded from Google's CDN to render the typefaces used on this page. Google may log your IP address when the font files are fetched. See <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google's privacy policy</a>. No cookies are set by this request.</p>
+
+      <h2>Cookies</h2>
+      <p>This site sets no cookies.</p>
+
+      <h2>Contact</h2>
+      <p>Questions? <a href="mailto:ai@danielsi.ch">ai@danielsi.ch</a></p>
+    </div>
+  </body>
+</html>
