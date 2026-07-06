@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- The Gauge Arc (Muted: #8a97a2) -->
+  <path 
+    d="M 20 70 A 40 40 0 0 1 65 30" 
+    fill="none" 
+    stroke="#8a97a2" 
+    stroke-width="2" 
+    stroke-linecap="round" 
+  />
+
+  <!-- The Data Pulse (Brass: #d8a24a) -->
+  <path 
+    d="M 65 30 L 72 15 L 82 45 L 90 25" 
+    fill="none" 
+    stroke="#d8a24a" 
+    stroke-width="2" 
+    stroke-linecap="round" 
+    stroke-linejoin="round" 
+  />
+</svg>

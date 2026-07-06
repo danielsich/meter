@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Privacy — meter</title>
+    <title>Imprint — meter</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       @import url('/fonts/spacegrotesk-latin-ext.woff2');
@@ -91,6 +91,8 @@
         margin: 2.5rem 0 0.6rem;
       }
       p { margin: 0 0 1rem; color: var(--paper); }
+      .addr { font-style: normal; }
+      .addr .line { display: block; }
       a { color: var(--brass-hi); }
       a:hover { color: var(--paper); }
       :focus-visible {
@@ -110,27 +112,36 @@
         <nav><a href="/">← back</a></nav>
       </header>
 
-      <h1>Privacy policy</h1>
-      <p class="updated">Last updated: July 6, 2026</p>
+      <h1>Imprint</h1>
+      <p class="updated">Information pursuant to § 5 DDG</p>
 
-      <h2>What this site does</h2>
-      <p>meter is a static dashboard that visualizes activity data from the <a href="https://github.com/danielsich/clockwork" target="_blank" rel="noopener">clockwork CLI</a>. It runs entirely in your browser. The <a href="https://github.com/danielsich/meter" target="_blank" rel="noopener">source code is publicly available</a> — you can verify all privacy claims directly.</p>
-
-      <h2>Data you load</h2>
-      <p>If you use <strong>Load .json</strong> or drag a file onto the page, that file is read locally by your browser. It is never uploaded to any server.</p>
-
-      <h2>Data this site collects</h2>
-      <p>None. meter has no analytics, no tracking pixels, no cookies, and no server that receives your data. The published dashboard data (if any) is a static file committed to the repository — it is public by nature of GitHub Pages.</p>
-
-      <h2>Third-party services</h2>
-      <p><strong>GitHub Pages</strong> serves this site. GitHub may log standard request metadata (IP address, user-agent, referrer). See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's privacy statement</a>.</p>
-      <p>Fonts (Space Grotesk and JetBrains Mono) are self-hosted and served directly from this site. No requests are made to Google Fonts or any other font CDN.</p>
-
-      <h2>Cookies</h2>
-      <p>This site sets no cookies.</p>
+      <h2>Operator</h2>
+      <address class="addr">
+        <span class="line">Daniel Sich</span>
+        <span class="line">Freisinger Landstraße 45a</span>
+        <span class="line">85748 Garching bei München</span>
+        <span class="line">Germany</span>
+      </address>
 
       <h2>Contact</h2>
-      <p>Questions? <a href="mailto:contact@danielsi.ch">contact@danielsi.ch</a></p>
+      <p>
+        Phone: <a href="tel:+4915783484324">+49 1578 3484324</a><br />
+        Email: <a href="mailto:contact@danielsi.ch">contact@danielsi.ch</a>
+      </p>
+
+      <h2>Responsible for content (§ 18 (2) MStV)</h2>
+      <address class="addr">
+        <span class="line">Daniel Sich</span>
+        <span class="line">Freisinger Landstraße 45a</span>
+        <span class="line">85748 Garching bei München</span>
+        <span class="line">Germany</span>
+      </address>
+
+      <h2>About this site</h2>
+      <p>meter is a non-commercial, not-for-profit personal project. It sells no goods or services and processes no personal data on a server — see the <a href="/privacy.html">privacy policy</a> for details.</p>
+
+      <h2>Dispute resolution</h2>
+      <p>The operator is neither obliged nor willing to participate in dispute resolution proceedings before a consumer arbitration board (§ 36 VSBG).</p>
     </div>
   </body>
 </html>
