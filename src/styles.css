@@ -1,3 +1,5 @@
+@import './fonts.css';
+
 :root {
   color-scheme: dark;
 
@@ -883,10 +885,23 @@ body.dragging .dropzone {
   font-family: var(--mono);
   font-size: 0.8rem;
   color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.footer-sub {
+  font-size: 0.72rem;
+  opacity: 0.7;
 }
 
 .site-footer a {
   color: var(--brass-hi);
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--paper);
 }
 
 /* ── Motion ───────────────────────────────────────────── */
