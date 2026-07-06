@@ -6,8 +6,10 @@ import {
   allSessions,
   computeStreaks,
   contributionGrid,
+  filterByMinSession,
   filterExport,
   hasDateData,
+  hasSessionData,
   hourHistogram,
   hourLevel,
   presetToFilter,
@@ -127,6 +129,9 @@ let _rawData: ClockworkExport | null = null;
 let _compareData: ClockworkExport | null = null;
 let _currentSource: Source | null = null;
 let _activePreset: RangePreset | 'all' = 'all';
+let _minSession: number = 0;
+let _yMetric: 'minutes' | 'prompts' = 'minutes';
+let _daySort: 'date' | 'asc' | 'desc' = 'date';
 
 function applyFilter(data: ClockworkExport, filter: DateFilter | null): ClockworkExport {
   return filter ? filterExport(data, filter) : data;
@@ -161,15 +166,67 @@ function renderRangeBar(data: ClockworkExport): void {
   });
 }
 
-function rerender(data: ClockworkExport): void {
+const SESSION_PRESETS: Array<{ label: string; value: number }> = [
+  { label: 'All', value: 0 },
+  { label: '5m+', value: 5 },
+  { label: '15m+', value: 15 },
+  { label: '30m+', value: 30 },
+];
+
+function renderSessionBar(data: ClockworkExport): void {
+  const bar = el('session-bar');
+  if (!bar) return;
+  const hasSessions = hasSessionData(data);
+  const buttons = SESSION_PRESETS.map((p) => {
+    const active = p.value === _minSession;
+    const disabled = !hasSessions && p.value > 0;
+    return `<button class="range-btn${active ? ' active' : ''}" data-session="${p.value}"${disabled ? ' disabled' : ''} type="button">${p.label}</button>`;
+  }).join('');
+  const hint = !hasSessions
+    ? `<span class="range-hint">needs <code>--detail sessions</code> to filter</span>`
+    : '';
+  bar.innerHTML = `<span class="range-label">min session</span>${buttons}${hint}`;
+  bar.querySelectorAll<HTMLButtonElement>('[data-session]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _minSession = Number(btn.dataset.session ?? 0);
+      if (_rawData) rerender(_rawData);
+    });
+  });
+}
+
+function wireMetricToggle(): void {
+  document.querySelectorAll<HTMLButtonElement>('[data-metric]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      _yMetric = (btn.dataset.metric ?? 'minutes') as 'minutes' | 'prompts';
+      if (_rawData) rerender(_rawData);
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-day-sort]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const s = (btn.dataset.daySort ?? 'asc') as 'asc' | 'desc';
+      _daySort = _daySort === s ? 'date' : s;
+      if (_rawData) rerender(_rawData);
+    });
+  });
+}
+
+function applyAllFilters(data: ClockworkExport): ClockworkExport {
   const filter = _activePreset !== 'all' ? presetToFilter(_activePreset) : null;
-  const view = applyFilter(data, filter);
-  const compareView = _compareData ? applyFilter(_compareData, filter) : null;
+  let view = applyFilter(data, filter);
+  if (_minSession > 0) view = filterByMinSession(view, _minSession);
+  return view;
+}
+
+function rerender(data: ClockworkExport): void {
+  const view = applyAllFilters(data);
+  const compareView = _compareData ? applyAllFilters(_compareData) : null;
   renderRangeBar(data);
+  renderSessionBar(data);
   renderReadout(view, compareView);
   renderActivity(view);
   renderProjects(view, compareView);
   initDeepLink();
+  wireMetricToggle();
 }
 
 function clear(...ids: string[]): void {
@@ -278,24 +335,29 @@ function contributionHTML(data: ClockworkExport): string {
   return `<div class="contrib">${cells}</div>`;
 }
 
-/** Scatter plot: session start time-of-day (X) vs duration (Y). */
+/** Scatter plot: session start time-of-day (X) vs duration or prompts (Y). */
 function sessionRhythmHTML(sessions: SessionEntry[]): string {
   if (!sessions.length) return '';
+
+  const usePrompts = _yMetric === 'prompts';
+  const yVal = (s: SessionEntry) => usePrompts ? s.prompts : s.minutes;
+  const maxY = Math.max(...sessions.map(yVal), usePrompts ? 10 : 60);
 
   const VW = 780, VH = 160;
   const ML = 46, MR = 12, MT = 10, MB = 28;
   const cW = VW - ML - MR;
   const cH = VH - MT - MB;
 
-  const maxMin = Math.max(...sessions.map((s) => s.minutes), 60);
-  const { axisMax, ticks } = buildScale(maxMin);
+  // Y axis scale
+  const { axisMax, ticks } = usePrompts
+    ? buildScale(maxY)
+    : buildScale(maxY);
 
   const xOf = (sec: number) => {
     const d = new Date(sec * 1000);
     return ML + ((d.getHours() + d.getMinutes() / 60) / 24) * cW;
   };
-  const yOf = (min: number) =>
-    MT + cH - Math.min(1, min / axisMax) * cH;
+  const yOf = (v: number) => MT + cH - Math.min(1, v / axisMax) * cH;
 
   const gridLines = [6, 12, 18]
     .map((h) => {
@@ -320,9 +382,10 @@ function sessionRhythmHTML(sessions: SessionEntry[]): string {
   const yAxis = ticks
     .map((t) => {
       const y = yOf(t).toFixed(1);
+      const label = usePrompts ? String(t) : formatTick(t);
       return (
         `<line x1="${ML - 4}" y1="${y}" x2="${ML}" y2="${y}" stroke="#2b3743" stroke-width="1"/>` +
-        `<text x="${ML - 7}" y="${(Number(y) + 3.5).toFixed(1)}" text-anchor="end" fill="#8a97a2" font-size="9" font-family="'JetBrains Mono',monospace">${formatTick(t)}</text>`
+        `<text x="${ML - 7}" y="${(Number(y) + 3.5).toFixed(1)}" text-anchor="end" fill="#8a97a2" font-size="9" font-family="'JetBrains Mono',monospace">${label}</text>`
       );
     })
     .join('');
@@ -330,15 +393,31 @@ function sessionRhythmHTML(sessions: SessionEntry[]): string {
   const dots = sessions
     .map((s) => {
       const cx = xOf(s.start).toFixed(1);
-      const cy = yOf(s.minutes).toFixed(1);
-      return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#d8a24a" opacity="0.52"/>`;
+      const cy = yOf(yVal(s)).toFixed(1);
+      const tip = usePrompts
+        ? `${s.prompts} prompts · ${formatMinutes(s.minutes)}`
+        : `${formatMinutes(s.minutes)} · ${s.prompts} prompts`;
+      return `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#d8a24a" opacity="0.52"><title>${tip}</title></circle>`;
     })
     .join('');
 
+  const subLabel = usePrompts
+    ? 'Each dot is a session — when it started vs. prompts sent.'
+    : 'Each dot is a session — when it started vs. how long it ran.';
+
+  const toggle = (m: 'minutes' | 'prompts', label: string) =>
+    `<button class="toggle-btn${_yMetric === m ? ' active' : ''}" data-metric="${m}" type="button">${label}</button>`;
+
   return `
     <div class="scatter-wrap card">
-      <h3>Session rhythm</h3>
-      <svg class="scatter" viewBox="0 0 ${VW} ${VH}" role="img" aria-label="Scatter plot of session start time versus duration">
+      <div class="chart-header">
+        <h3>Session rhythm</h3>
+        <div class="chart-toggle" role="group" aria-label="Y axis metric">
+          ${toggle('minutes', 'time')}${toggle('prompts', 'prompts')}
+        </div>
+      </div>
+      <p class="chart-sub">${subLabel}</p>
+      <svg class="scatter" viewBox="0 0 ${VW} ${VH}" role="img" aria-label="Scatter plot of session start time versus ${usePrompts ? 'prompts' : 'duration'}">
         <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${MT + cH}" stroke="#2b3743" stroke-width="1"/>
         <line x1="${ML}" y1="${MT + cH}" x2="${ML + cW}" y2="${MT + cH}" stroke="#2b3743" stroke-width="1"/>
         ${gridLines}${xAxis}${yAxis}${dots}
@@ -348,21 +427,49 @@ function sessionRhythmHTML(sessions: SessionEntry[]): string {
 
 /** Per-day horizontal bar chart for one project's daily breakdown. */
 function dayBarsHTML(daily: DailyEntry[]): string {
-  const days = sortedDaily(daily);
-  const max = Math.max(...days.map((d) => d.minutes), 1);
+  const byDate = sortedDaily(daily);
+  const usePrompts = _yMetric === 'prompts';
+  const valueOf = (d: DailyEntry) => usePrompts ? d.prompts : d.minutes;
+  const days =
+    _daySort === 'asc' ? [...byDate].sort((a, b) => valueOf(a) - valueOf(b)) :
+    _daySort === 'desc' ? [...byDate].sort((a, b) => valueOf(b) - valueOf(a)) :
+    byDate;
+  const max = Math.max(...days.map(valueOf), 1);
   const rows = days
     .map((d) => {
-      const w = ((d.minutes / max) * 100).toFixed(1);
+      const w = ((valueOf(d) / max) * 100).toFixed(1);
+      const primary = usePrompts
+        ? `${formatNumber(d.prompts)}<span class="unit">p</span>`
+        : formatMinutes(d.minutes);
+      const secondary = usePrompts
+        ? formatMinutes(d.minutes)
+        : `${formatNumber(d.prompts)}<span class="unit">p</span>`;
       return `
       <div class="daybar">
         <span class="db-date">${shortDate(d.date)}</span>
         <span class="db-track"><span class="db-fill" style="width:${w}%"></span></span>
-        <span class="db-min">${formatMinutes(d.minutes)}</span>
-        <span class="db-p">${formatNumber(d.prompts)}<span class="unit">p</span></span>
+        <span class="db-min">${primary}</span>
+        <span class="db-p">${secondary}</span>
       </div>`;
     })
     .join('');
   return `<div class="daybars">${rows}</div>`;
+}
+
+function dayBarsToggleHTML(): string {
+  const metric = (m: 'minutes' | 'prompts', label: string) =>
+    `<button class="toggle-btn${_yMetric === m ? ' active' : ''}" data-metric="${m}" type="button">${label}</button>`;
+  const sort = (s: 'asc' | 'desc', label: string) =>
+    `<button class="toggle-btn${_daySort === s ? ' active' : ''}" data-day-sort="${s}" type="button" title="${s === 'asc' ? 'Least first' : 'Most first'}">${label}</button>`;
+  return `
+    <div class="chart-controls">
+      <div class="chart-toggle" role="group" aria-label="Y axis metric">
+        ${metric('minutes', 'time')}${metric('prompts', 'prompts')}
+      </div>
+      <div class="chart-toggle" role="group" aria-label="Sort order">
+        ${sort('asc', '↑')}${sort('desc', '↓')}
+      </div>
+    </div>`;
 }
 
 const LINK_ICON = `<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 9.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5L7 4"/><path d="M9.5 6.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5L9 12"/></svg>`;
@@ -406,21 +513,26 @@ function drillContent(
 
   const copyBtn = `<button class="copy-link" data-copy-link="${escapeHtml(p.id)}" type="button" title="Copy link to this project">${LINK_ICON}<span class="copy-label">Copy link</span></button>`;
 
-  const days =
-    p.daily && p.daily.length
-      ? dayBarsHTML(p.daily)
-      : `<p class="hint">No per-day breakdown in this export — use <code>--detail daily</code> or richer.</p>`;
+  const hasDailyData = !!(p.daily && p.daily.length);
+  const days = hasDailyData
+    ? dayBarsHTML(p.daily!)
+    : `<p class="hint">No per-day breakdown in this export — use <code>--detail daily</code> or richer.</p>`;
 
   const heat =
     p.prompts && p.prompts.length
       ? `<div class="heat-wrap"><h4>Hour of day</h4>${heatmapHTML(p.prompts)}</div>`
       : `<p class="hint">Hourly activity needs a <code>--detail raw</code> export.</p>`;
 
+  const dayToggle = hasDailyData ? dayBarsToggleHTML() : '';
+
   return `
     <div class="drill-header">${copyBtn}</div>
     ${stats}
     <div class="drill-charts">
-      <div class="drill-days"><h4>Per day</h4>${days}</div>
+      <div class="drill-days">
+        <div class="chart-header"><h4>Per day</h4>${dayToggle}</div>
+        ${days}
+      </div>
       ${heat}
     </div>`;
 }
@@ -726,6 +838,9 @@ function show(data: ClockworkExport, source: Source): void {
   _compareData = null;
   _currentSource = source;
   _activePreset = 'all';
+  _minSession = 0;
+  _yMetric = 'minutes';
+  _daySort = 'date';
   renderMeta(data, source);
   rerender(data);
   renderSampleState(data);

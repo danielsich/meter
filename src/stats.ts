@@ -225,6 +225,73 @@ export function hasDateData(data: ClockworkExport): boolean {
   return data.projects.some((p) => p.daily && p.daily.length > 0);
 }
 
+/** True if any project has session-level data (required for session floor filter). */
+export function hasSessionData(data: ClockworkExport): boolean {
+  return data.projects.some((p) => p.sessions && p.sessions.length > 0);
+}
+
+/**
+ * Return a copy of the export keeping only sessions ≥ minMinutes long.
+ * Per-project totals and daily entries are rebuilt from the surviving sessions.
+ * Projects with no qualifying sessions are dropped.
+ * Projects without session data are kept as-is.
+ */
+export function filterByMinSession(
+  data: ClockworkExport,
+  minMinutes: number,
+): ClockworkExport {
+  if (minMinutes <= 0) return data;
+
+  const projects = data.projects.flatMap((p) => {
+    if (!p.sessions || p.sessions.length === 0) return [p];
+
+    const sessions = p.sessions.filter((s) => s.minutes >= minMinutes);
+    if (!sessions.length) return [];
+
+    // Rebuild daily from surviving sessions
+    const dailyMap = new Map<string, { minutes: number; prompts: number }>();
+    for (const s of sessions) {
+      const dateStr = ordinalToDateStr(Math.floor(s.start / 86400));
+      const cur = dailyMap.get(dateStr) ?? { minutes: 0, prompts: 0 };
+      cur.minutes += s.minutes;
+      cur.prompts += s.prompts;
+      dailyMap.set(dateStr, cur);
+    }
+    const daily = [...dailyMap.entries()]
+      .map(([date, d]) => ({ date, minutes: d.minutes, prompts: d.prompts }))
+      .sort((a, b) => ordinal(a.date) - ordinal(b.date));
+
+    const filteredMinutes = sessions.reduce((s, v) => s + v.minutes, 0);
+    const filteredPrompts = sessions.reduce((s, v) => s + v.prompts, 0);
+
+    return [
+      {
+        ...p,
+        sessions,
+        daily: p.daily ? daily : p.daily,
+        totals: {
+          ...p.totals,
+          minutes: filteredMinutes,
+          prompts: filteredPrompts,
+          sessions: sessions.length,
+          active_days: daily.length,
+        },
+      },
+    ];
+  });
+
+  return {
+    ...data,
+    projects,
+    totals: {
+      projects: projects.length,
+      minutes: projects.reduce((s, p) => s + p.totals.minutes, 0),
+      prompts: projects.reduce((s, p) => s + p.totals.prompts, 0),
+      sessions: projects.reduce((s, p) => s + p.totals.sessions, 0),
+    },
+  };
+}
+
 /**
  * Return a copy of the export filtered to the given date range.
  * Projects with no activity in the range are dropped.

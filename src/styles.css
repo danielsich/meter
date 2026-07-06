@@ -1045,6 +1045,80 @@ body.dragging .dropzone {
 .cmp-b { color: var(--patina); }
 .cmp-sep { color: var(--muted); }
 
+/* ── Chart header + toggle ───────────────────────────── */
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0;
+}
+
+.chart-header h3,
+.chart-header h4 {
+  margin: 0;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chart-toggle {
+  display: flex;
+  gap: 2px;
+}
+
+.toggle-btn {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 0.18rem 0.55rem;
+  cursor: pointer;
+  transition: color 0.13s ease, background 0.13s ease, border-color 0.13s ease;
+}
+
+.toggle-btn:first-child { border-radius: 999px 0 0 999px; }
+.toggle-btn:last-child  { border-radius: 0 999px 999px 0; margin-left: -1px; }
+
+.toggle-btn:hover:not(.active) {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+  z-index: 1;
+}
+
+.toggle-btn.active {
+  color: var(--brass-hi);
+  border-color: var(--brass);
+  background: var(--brass-fill);
+  z-index: 1;
+}
+
+/* ── Chart sub-label ─────────────────────────────────── */
+.chart-sub {
+  margin: 0.3rem 0 0.6rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* ── Range / session bar label ───────────────────────── */
+.range-label {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.6;
+  margin-right: 0.1rem;
+}
+
 /* ── Session rhythm scatter ───────────────────────────── */
 .scatter-wrap {
   overflow: hidden;
