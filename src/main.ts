@@ -1142,6 +1142,32 @@ function wireControls(): void {
 
   loadBtn?.addEventListener('click', () => input?.click());
   resetBtn?.addEventListener('click', () => void loadPublished());
+
+  // Copyable command blocks in the how-to: click the icon or double-click the
+  // command itself to copy it to the clipboard.
+  const copyCommand = (cmd: Element): void => {
+    const text = cmd.querySelector('code')?.textContent?.trim();
+    const btn = cmd.querySelector<HTMLElement>('.cmd-copy');
+    if (!text || !btn) return;
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        btn.classList.add('copied');
+        window.setTimeout(() => btn.classList.remove('copied'), 1600);
+      })
+      .catch(() => {
+        /* clipboard permission denied */
+      });
+  };
+  const howto = el('howto');
+  howto?.addEventListener('click', (e) => {
+    const cmd = (e.target as Element).closest('.cmd');
+    if ((e.target as Element).closest('.cmd-copy') && cmd) copyCommand(cmd);
+  });
+  howto?.addEventListener('dblclick', (e) => {
+    const cmd = (e.target as Element).closest('.cmd');
+    if (cmd) copyCommand(cmd);
+  });
   // clear-compare is rendered dynamically inside #meta, so delegate from parent
   el('meta')?.addEventListener('click', (e) => {
     if ((e.target as Element).closest('#clear-compare')) clearCompare();
