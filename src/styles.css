@@ -726,6 +726,12 @@ body.dragging .dropzone {
   font-size: 0.85rem;
 }
 
+.howto-note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 /* Shared inline-code + hint styling */
 .howto-body code,
 .hint code,

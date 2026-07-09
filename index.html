@@ -71,6 +71,14 @@
               </div>
               Use <code>claude</code> or <code>codex</code> instead of
               <code>both</code> to scope to a single tool.
+              <p class="howto-note">
+                Heads up: Claude Code prunes local session transcripts by
+                default, so a <code>claude</code> export only covers roughly the
+                last 30 days
+                (<a href="https://code.claude.com/docs/en/data-usage" target="_blank" rel="noopener noreferrer"><code>cleanupPeriodDays</code></a>).
+                Codex keeps its sessions until you delete them, so a
+                <code>codex</code> export usually goes back further.
+              </p>
             </li>
             <li>
               Click <strong>Load .json</strong> above (or drag the file onto the
