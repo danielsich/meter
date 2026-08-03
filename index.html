@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
-    <title>meter — Clockwork readout</title>
+    <title>meter | Clockwork readout</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
@@ -45,9 +45,9 @@
         <summary>How to use meter</summary>
         <div class="howto-body">
           <p>
-            This dashboard shows <strong>synthetic sample data</strong>. To view
-            your own activity, load a clockwork export — it stays in your browser
-            and is never uploaded.
+            This dashboard starts with <strong>synthetic sample data</strong>. To
+            see your own activity, load a clockwork export. The file stays in
+            your browser and is never uploaded.
           </p>
           <ol>
             <li>
@@ -72,9 +72,8 @@
               Use <code>claude</code> or <code>codex</code> instead of
               <code>both</code> to scope to a single tool.
               <p class="howto-note">
-                Heads up: Claude Code prunes local session transcripts by
-                default, so a <code>claude</code> export only covers roughly the
-                last 30 days
+                Claude Code prunes local session transcripts by default, so a
+                <code>claude</code> export only covers roughly the last 30 days
                 (<a href="https://code.claude.com/docs/en/data-usage" target="_blank" rel="noopener noreferrer"><code>cleanupPeriodDays</code></a>).
                 Codex keeps its sessions until you delete them, so a
                 <code>codex</code> export usually goes back further.
@@ -86,9 +85,9 @@
             </li>
           </ol>
           <p class="howto-privacy">
-            Privacy: your file is read locally with your browser's File API. It
-            never leaves your device — nothing is sent to this site, to GitHub,
-            or anywhere else. See the <a href="/privacy.html">privacy policy</a>.
+            Privacy: your browser reads the file locally with the File API. It
+            never leaves your device. This site does not send it to GitHub or
+            anywhere else. See the <a href="/privacy.html">privacy policy</a>.
           </p>
         </div>
       </details>
@@ -121,7 +120,7 @@
     <div id="dropzone" class="dropzone" aria-hidden="true">
       <div class="dropzone-inner">
         <strong>Drop your clockwork export</strong>
-        <span>A .json file — read in your browser, never uploaded anywhere.</span>
+        <span>A .json file, read in your browser and never uploaded.</span>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

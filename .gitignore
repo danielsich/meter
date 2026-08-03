@@ -1,5 +1,6 @@
 node_modules/
 dist/
+graphify-out/
 
 # Regenerated on every build by scripts/prepare-data.mjs — never commit.
 public/clockwork-data.json
