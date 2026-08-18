@@ -33,7 +33,7 @@ import {
   isSchemaSupported,
   structuralError,
 } from './validate';
-
+import { shouldCompareUpload } from './upload';
 
 const el = (id: string) => document.getElementById(id);
 
@@ -411,12 +411,13 @@ function loadFromFile(file: File): void {
       return;
     }
 
-    // Auto-detect comparison: two single-provider exports with different providers
-    const isComparison =
-      _rawData !== null &&
-      _rawData.provider !== data.provider &&
-      _rawData.provider !== 'both' &&
-      data.provider !== 'both';
+    // Auto-detect comparison only between two user-uploaded single-provider files.
+    // The first upload must replace the built-in published sample.
+    const isComparison = shouldCompareUpload(
+      _rawData,
+      _currentSource?.kind ?? null,
+      data,
+    );
 
     if (isComparison) {
       _compareData = data;
