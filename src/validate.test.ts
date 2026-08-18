@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { escapeHtml, isSchemaSupported, structuralError } from './validate.ts';
+import {
+  ACCEPTED_SCHEMAS_LABEL,
+  escapeHtml,
+  isSchemaSupported,
+  structuralError,
+} from './validate.ts';
 
 const validProject = {
   id: 'p1',
@@ -51,10 +56,55 @@ const validV2Export = {
   },
 };
 
-test('isSchemaSupported accepts v1 and v2, rejects everything else', () => {
+const validTokens = {
+  responses: 2,
+  input: 100,
+  output: 200,
+  cache_read: 4_000,
+  cache_write: 50,
+  reasoning: 25,
+  total: 4_350,
+  by_model: [
+    {
+      model: 'claude-sonnet-4-6',
+      responses: 2,
+      input: 100,
+      output: 200,
+      cache_read: 4_000,
+      cache_write: 50,
+      reasoning: 25,
+      total: 4_350,
+    },
+  ],
+};
+
+const validV3Export = {
+  ...validV2Export,
+  schema: 'clockwork/v3',
+  tokens: true,
+  projects: validV2Export.projects.map((project) => ({
+    ...project,
+    tokens: validTokens,
+    daily: [{ date: '2026-07-01', minutes: 10, prompts: 2, tokens: validTokens }],
+  })),
+  totals: {
+    ...validV2Export.totals,
+    tokens: validTokens,
+    by_provider: {
+      claude: { ...validV2Export.totals.by_provider.claude, tokens: validTokens },
+      codex: { ...validV2Export.totals.by_provider.codex, tokens: validTokens },
+    },
+  },
+};
+
+test('isSchemaSupported accepts v1 through v3 and labels them naturally', () => {
   assert.equal(isSchemaSupported('clockwork/v1'), true);
   assert.equal(isSchemaSupported('clockwork/v2'), true);
-  assert.equal(isSchemaSupported('clockwork/v3'), false);
+  assert.equal(isSchemaSupported('clockwork/v3'), true);
+  assert.equal(
+    ACCEPTED_SCHEMAS_LABEL,
+    'clockwork/v1, clockwork/v2, or clockwork/v3',
+  );
   assert.equal(isSchemaSupported(undefined), false);
   assert.equal(isSchemaSupported(2), false);
 });
@@ -65,6 +115,68 @@ test('structuralError accepts a well-formed export', () => {
 
 test('structuralError accepts a combined clockwork/v2 export', () => {
   assert.equal(structuralError(validV2Export), null);
+});
+
+test('structuralError accepts token and model usage throughout a v3 export', () => {
+  assert.equal(structuralError(validV3Export), null);
+  assert.equal(
+    structuralError({ ...validV2Export, schema: 'clockwork/v3', tokens: false }),
+    null,
+  );
+});
+
+test('structuralError rejects malformed token blocks and hostile model names', () => {
+  const hostileModel = {
+    ...validV2Export,
+    schema: 'clockwork/v3',
+    projects: [{
+      ...validProject,
+      tokens: {
+        ...validTokens,
+        by_model: [{ ...validTokens.by_model[0], model: { html: '<img onerror=alert(1)>' } }],
+      },
+    }],
+  };
+
+  const badDaily = {
+    ...validV2Export,
+    schema: 'clockwork/v3',
+    projects: [{
+      ...validProject,
+      daily: [{
+        date: '2026-07-01',
+        minutes: 10,
+        prompts: 2,
+        tokens: { ...validTokens, input: '100' },
+      }],
+    }],
+  };
+
+  const badProvider = {
+    ...validV2Export,
+    schema: 'clockwork/v3',
+    totals: {
+      ...validV2Export.totals,
+      by_provider: {
+        ...validV2Export.totals.by_provider,
+        claude: {
+          ...validV2Export.totals.by_provider.claude,
+          tokens: { ...validTokens, output: null },
+        },
+      },
+    },
+  };
+
+  const cases: Array<[unknown, RegExp]> = [
+    [{ ...validV3Export, tokens: 'yes' }, /"tokens" must be a boolean/],
+    [{ ...validV3Export, totals: { ...validV3Export.totals, tokens: [] } }, /totals\.tokens.*object/],
+    [hostileModel, /non-string "model"/],
+    [badDaily, /daily\[\]\.tokens\.input.*number/],
+    [badProvider, /by_provider\.claude\.tokens.*output/],
+  ];
+  for (const [input, pattern] of cases) {
+    assert.match(structuralError(input) ?? '', pattern);
+  }
 });
 
 test('structuralError rejects a bad providers list or per-project provider', () => {

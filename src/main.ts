@@ -1,5 +1,10 @@
 import './styles.css';
-import { renderActivity, type ChartMetric, type DaySort } from './charts';
+import {
+  renderActivity,
+  renderTokenUsage,
+  type ChartMetric,
+  type DaySort,
+} from './charts';
 import type { ClockworkExport, ClockworkProject } from './clockwork';
 import {
   formatGeneratedAt,
@@ -15,6 +20,7 @@ import {
   filterExport,
   hasDateData,
   hasSessionData,
+  hasTokenData,
   presetToFilter,
   providersOf,
   type DateFilter,
@@ -209,7 +215,14 @@ function rerender(data: ClockworkExport): void {
   renderProviderBar(providers);
   renderRangeBar(data);
   renderSessionBar(data);
+  if (
+    _yMetric === 'tokens' &&
+    (!hasTokenData(view) || (compareView !== null && !hasTokenData(compareView)))
+  ) {
+    _yMetric = 'minutes';
+  }
   renderReadout(view, compareView);
+  renderTokenUsage(el('token-usage'), view, compareView);
   renderActivity(el('activity'), applyAllFilters(activitySource), _yMetric);
   renderProjects(el('meter'), view, compareView, mergeByPath, _yMetric, _daySort);
   initProjectDeepLink();
@@ -224,7 +237,7 @@ function clear(...ids: string[]): void {
 }
 
 function renderError(headline: string, detail: string): void {
-  clear('meta', 'readout', 'activity', 'sample-note');
+  clear('meta', 'readout', 'token-usage', 'activity', 'sample-note');
   const meter = el('meter');
   if (!meter) return;
   meter.innerHTML = `

@@ -6,11 +6,11 @@
  * unit-tested under `node --test` without a browser.
  */
 
-/** Schemas this viewer can render. v2 adds per-project `provider` + `providers[]`. */
-export const ACCEPTED_SCHEMAS = ['clockwork/v1', 'clockwork/v2'] as const;
+/** Schemas this viewer can render. v3 adds optional token and model usage. */
+export const ACCEPTED_SCHEMAS = ['clockwork/v1', 'clockwork/v2', 'clockwork/v3'] as const;
 
-/** Human-readable list for error messages, e.g. "clockwork/v1 or clockwork/v2". */
-export const ACCEPTED_SCHEMAS_LABEL = ACCEPTED_SCHEMAS.join(' or ');
+/** Human-readable list for error messages. */
+export const ACCEPTED_SCHEMAS_LABEL = `${ACCEPTED_SCHEMAS.slice(0, -1).join(', ')}, or ${ACCEPTED_SCHEMAS.at(-1)}`;
 
 export function isSchemaSupported(schema: unknown): boolean {
   return typeof schema === 'string' && (ACCEPTED_SCHEMAS as readonly string[]).includes(schema);
@@ -38,6 +38,40 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null;
 }
 
+const TOKEN_NUMBER_FIELDS = [
+  'responses',
+  'input',
+  'output',
+  'cache_read',
+  'cache_write',
+  'reasoning',
+  'total',
+] as const;
+
+function tokenUsageError(value: unknown, path: string): string | null {
+  if (!isObject(value) || Array.isArray(value)) return `Field "${path}" must be an object.`;
+  for (const field of TOKEN_NUMBER_FIELDS) {
+    if (typeof value[field] !== 'number') {
+      return `Field "${path}.${field}" must be a number.`;
+    }
+  }
+  if (value.by_model !== undefined) {
+    if (!Array.isArray(value.by_model)) return `Field "${path}.by_model" must be an array.`;
+    for (const model of value.by_model as unknown[]) {
+      if (!isObject(model) || Array.isArray(model)) return `A "${path}.by_model" entry is not an object.`;
+      if (typeof model.model !== 'string') {
+        return `A "${path}.by_model" entry has a non-string "model".`;
+      }
+      for (const field of TOKEN_NUMBER_FIELDS) {
+        if (typeof model[field] !== 'number') {
+          return `A "${path}.by_model" entry has a non-number "${field}".`;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Strict structural guard for parsed exports. Rejects the wrong shape *and* the
  * wrong types for the fields the renderers inject into HTML (project id/name,
@@ -54,6 +88,8 @@ export function structuralError(data: unknown): string | null {
 
   if (data.provider !== undefined && typeof data.provider !== 'string')
     return 'Field "provider" must be a string.';
+  if (data.tokens !== undefined && typeof data.tokens !== 'boolean')
+    return 'Field "tokens" must be a boolean.';
   if (data.providers !== undefined) {
     if (!Array.isArray(data.providers)) return 'Field "providers" must be an array.';
     for (const name of data.providers as unknown[])
@@ -63,6 +99,20 @@ export function structuralError(data: unknown): string | null {
     return 'Field "generated_at" must be a string.';
   if (!Array.isArray(data.projects)) return 'Missing a "projects" array.';
   if (!isObject(data.totals)) return 'Missing a "totals" object.';
+  if (data.totals.tokens !== undefined) {
+    const error = tokenUsageError(data.totals.tokens, 'totals.tokens');
+    if (error) return error;
+  }
+  if (data.totals.by_provider !== undefined) {
+    if (!isObject(data.totals.by_provider)) return 'Field "totals.by_provider" must be an object.';
+    for (const [provider, totals] of Object.entries(data.totals.by_provider)) {
+      if (!isObject(totals)) return `Field "totals.by_provider.${provider}" must be an object.`;
+      if (totals.tokens !== undefined) {
+        const error = tokenUsageError(totals.tokens, `totals.by_provider.${provider}.tokens`);
+        if (error) return error;
+      }
+    }
+  }
 
   for (const p of data.projects as unknown[]) {
     if (!isObject(p)) return 'A "projects" entry is not an object.';
@@ -71,12 +121,20 @@ export function structuralError(data: unknown): string | null {
     if (p.provider !== undefined && typeof p.provider !== 'string')
       return 'A project\'s "provider" is not a string.';
     if (!isObject(p.totals)) return 'A project is missing its "totals" object.';
+    if (p.tokens !== undefined) {
+      const error = tokenUsageError(p.tokens, 'projects[].tokens');
+      if (error) return error;
+    }
 
     if (p.daily !== undefined) {
       if (!Array.isArray(p.daily)) return 'A project\'s "daily" is not an array.';
       for (const e of p.daily as unknown[]) {
         if (!isObject(e)) return 'A "daily" entry is not an object.';
         if (typeof e.date !== 'string') return 'A "daily" entry has a non-string "date".';
+        if (e.tokens !== undefined) {
+          const error = tokenUsageError(e.tokens, 'projects[].daily[].tokens');
+          if (error) return error;
+        }
       }
     }
     if (p.sessions !== undefined && !Array.isArray(p.sessions))

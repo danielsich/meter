@@ -1,6 +1,6 @@
 /**
  * Type definitions for the clockwork `export` command output.
- * Schema: clockwork/v1 and clockwork/v2 (both accepted).
+ * Schema: clockwork/v1, clockwork/v2, and clockwork/v3 (all accepted).
  *
  * Which per-project fields are present depends on the export `--detail` level:
  *   summary  → totals only
@@ -15,10 +15,42 @@
  *     (the same path can appear once per provider)
  *   - `totals.by_provider` — grand totals split per provider
  *
+ * clockwork/v3 additions (additive; v2 consumers can read the file unchanged):
+ *   - top-level `tokens` — whether the export was generated with `--tokens`
+ *   - token usage on projects, daily entries, provider totals, and grand totals
+ *   - per-model token usage within each token block
+ *
  * Every consumer must treat the optional fields as possibly-absent.
  */
 
 export type ClockworkProvider = 'claude' | 'codex' | 'both' | string;
+
+export interface ModelUsage {
+  model: string;
+  responses: number;
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+  /** Subset of output; never add this to total. */
+  reasoning: number;
+  /** input + output + cache_read + cache_write. */
+  total: number;
+}
+
+export interface TokenUsage {
+  responses: number;
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+  /** Subset of output; never add this to total. */
+  reasoning: number;
+  /** input + output + cache_read + cache_write. */
+  total: number;
+  /** Largest total consumer first; omitted by daily blocks in some v3 exports. */
+  by_model?: ModelUsage[];
+}
 
 export interface ClockworkProjectTotals {
   minutes: number;
@@ -35,6 +67,8 @@ export interface DailyEntry {
   date: string;
   minutes: number;
   prompts: number;
+  /** clockwork/v3: present when the export used `--tokens`. */
+  tokens?: TokenUsage;
 }
 
 /** One work session. `start`/`end` are epoch seconds. */
@@ -55,6 +89,8 @@ export interface ClockworkProject {
   /** Display name — "project-N" when the export was anonymized. */
   name: string;
   totals: ClockworkProjectTotals;
+  /** clockwork/v3: present when the export used `--tokens`. */
+  tokens?: TokenUsage;
   path?: string;
   /** @deprecated first/last moved to totals in clockwork/v1. Kept for older exports. */
   first?: number;
@@ -73,6 +109,8 @@ export interface ProviderTotals {
   minutes: number;
   prompts: number;
   sessions: number;
+  /** clockwork/v3: present when the export used `--tokens`. */
+  tokens?: TokenUsage;
 }
 
 export interface ClockworkGrandTotals {
@@ -80,17 +118,21 @@ export interface ClockworkGrandTotals {
   minutes: number;
   prompts: number;
   sessions: number;
+  /** clockwork/v3: present when the export used `--tokens`. */
+  tokens?: TokenUsage;
   /** clockwork/v2: grand totals broken down per provider, keyed by name. */
   by_provider?: Record<string, ProviderTotals>;
 }
 
 export interface ClockworkExport {
-  /** Must be an accepted schema (clockwork/v1 or v2); the viewer refuses to render otherwise. */
+  /** Must be an accepted schema (clockwork/v1, v2, or v3). */
   schema: string;
   generated_at: string;
   provider: ClockworkProvider;
   /** clockwork/v2: sorted, distinct providers present in this export (≥ 1). */
   providers?: string[];
+  /** clockwork/v3: true only when the export was generated with `--tokens`. */
+  tokens?: boolean;
   /** Timezone the `daily[].date` strings are bucketed in; "UTC" in v1. */
   daily_tz?: string;
   /** Export detail level: "raw" | "sessions" | "daily". */

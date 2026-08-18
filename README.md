@@ -12,7 +12,8 @@ not contain the clockwork CLI itself.
 ## Sample-only by design
 
 The public site contains synthetic data. On each build,
-`scripts/prepare-data.mjs` generates a valid `clockwork/v1` sample
+`scripts/prepare-data.mjs` generates a valid `clockwork/v3` sample with synthetic
+token and model usage
 (`provider: "sample"`) relative to the build date. This keeps the streaks and
 12-week calendar current without bundling real activity data.
 
@@ -28,11 +29,13 @@ and never uploads it. The deployed site has no way to publish personal data.
 - The activity view covers your current and longest streaks, total active days,
   and the past 12 weeks.
 - Projects share one time scale and are sorted by time logged.
+- Token-enabled exports show model mix, cache reuse, tokens per response, and
+  token intensity per project and day without estimating cost.
 - Open any project row with a mouse or keyboard to see its stats, daily chart,
   and hourly activity.
 - A 24-hour heatmap shows when work happens. This view needs a `--detail raw`
   export, which is clockwork's default. Lighter exports show a short explanation.
-- Load any `clockwork/v1` file with the file picker or by dragging it onto the
+- Load any `clockwork/v1`, `clockwork/v2`, or `clockwork/v3` file with the file picker or by dragging it onto the
   page. The file stays in your browser.
 
 The charts use CSS and inline SVG, with no charting library or runtime
@@ -49,13 +52,13 @@ public site:
 
 The browser reads the file with the File API and does not upload it to a server
 or GitHub. It replaces the current data for that tab. Select **Sample data** to
-return to the built-in sample. If the file does not use the `clockwork/v1`
+return to the built-in sample. If the file does not use a supported clockwork
 schema, meter explains the problem instead of trying to render it.
 
 Generate an export with clockwork:
 
 ```bash
-clockwork both export > clockwork-data.json
+clockwork both export --tokens > clockwork-data.json
 ```
 
 Replace `both` with `claude` or `codex` to export one provider.
@@ -88,22 +91,38 @@ Enable Pages **before your first push**, or the first deploy fails:
 
 ## Data contract
 
-The viewer renders exports matching schema `clockwork/v1`. If `schema` is
-anything else, it shows a clear error instead of crashing.
+The viewer renders exports matching schemas `clockwork/v1`, `clockwork/v2`, and
+`clockwork/v3`. Token usage is opt-in in v3; exports without it keep every
+existing view and show an instruction where model usage would appear. Any other
+schema produces a clear error instead of a crash.
 
 ```jsonc
 {
-  "schema": "clockwork/v1",
+  "schema": "clockwork/v3",
   "generated_at": "2026-07-06T00:30:00+02:00",
   "provider": "both",                 // claude | codex | both | sample
+  "tokens": true,                      // whether --tokens was used
   "projects": [
     {
       "id": "0ac6be84",
       "name": "project-1",            // display name
-      "totals": { "minutes": 1234.76, "prompts": 1646, "sessions": 27, "active_days": 12 }
+      "totals": { "minutes": 1234.76, "prompts": 1646, "sessions": 27, "active_days": 12 },
+      "tokens": { "responses": 1800, "input": 31065, "output": 287747,
+        "cache_read": 20753836, "cache_write": 579725, "reasoning": 0,
+        "total": 21652373,
+        "by_model": [{ "model": "claude-sonnet-4-6", "responses": 1800,
+          "input": 31065, "output": 287747, "cache_read": 20753836,
+          "cache_write": 579725, "reasoning": 0, "total": 21652373 }] }
     }
   ],
-  "totals": { "projects": 6, "minutes": 3392.97, "prompts": 4588, "sessions": 64 }
+  "totals": { "projects": 1, "minutes": 1234.76, "prompts": 1646,
+    "sessions": 27,
+    "tokens": { "responses": 1800, "input": 31065, "output": 287747,
+      "cache_read": 20753836, "cache_write": 579725, "reasoning": 0,
+      "total": 21652373,
+      "by_model": [{ "model": "claude-sonnet-4-6", "responses": 1800,
+        "input": 31065, "output": 287747, "cache_read": 20753836,
+        "cache_write": 579725, "reasoning": 0, "total": 21652373 }] } }
 }
 ```
 

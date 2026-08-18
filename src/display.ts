@@ -23,6 +23,16 @@ export function formatNumber(value: number): string {
   return Number.isFinite(numberValue) ? numberValue.toLocaleString('en-US') : '0';
 }
 
+/** Compact token count matching clockwork's CLI output (for example 1.2M). */
+export function formatTokens(value: number): string {
+  const tokenValue = Number(value);
+  const safe = Number.isFinite(tokenValue) ? Math.max(0, tokenValue) : 0;
+  if (safe >= 1_000_000_000) return `${(safe / 1_000_000_000).toFixed(1)}B`;
+  if (safe >= 1_000_000) return `${(safe / 1_000_000).toFixed(1)}M`;
+  if (safe >= 1_000) return `${(safe / 1_000).toFixed(1)}K`;
+  return formatNumber(safe);
+}
+
 export function formatGeneratedAt(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;

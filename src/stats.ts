@@ -2,7 +2,16 @@
  * Pure computation for the dashboard: streaks, calendar intensities, and
  * hour-of-day histograms. No DOM here — everything is testable in isolation.
  */
-import type { ClockworkExport, ClockworkProject, DailyEntry, SessionEntry } from './clockwork';
+import type {
+  ClockworkExport,
+  ClockworkGrandTotals,
+  ClockworkProject,
+  DailyEntry,
+  ModelUsage,
+  ProviderTotals,
+  SessionEntry,
+  TokenUsage,
+} from './clockwork';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -216,6 +225,100 @@ export function sortedDaily(daily: DailyEntry[]): DailyEntry[] {
   return [...daily].sort((a, b) => ordinal(a.date) - ordinal(b.date));
 }
 
+type TokenCounters = Omit<ModelUsage, 'model'>;
+
+function emptyTokenCounters(): TokenCounters {
+  return {
+    responses: 0,
+    input: 0,
+    output: 0,
+    cache_read: 0,
+    cache_write: 0,
+    reasoning: 0,
+    total: 0,
+  };
+}
+
+/** Sum token blocks without ever double-counting reasoning or model totals. */
+export function sumTokenUsage(
+  usages: Iterable<TokenUsage | undefined>,
+): TokenUsage | undefined {
+  const total = emptyTokenCounters();
+  const byModel = new Map<string, TokenCounters>();
+  let found = false;
+  let completeModelData = true;
+
+  for (const usage of usages) {
+    if (!usage) continue;
+    found = true;
+    if (!usage.by_model) completeModelData = false;
+    total.responses += usage.responses;
+    total.input += usage.input;
+    total.output += usage.output;
+    total.cache_read += usage.cache_read;
+    total.cache_write += usage.cache_write;
+    total.reasoning += usage.reasoning;
+
+    for (const model of usage.by_model ?? []) {
+      const current = byModel.get(model.model) ?? emptyTokenCounters();
+      current.responses += model.responses;
+      current.input += model.input;
+      current.output += model.output;
+      current.cache_read += model.cache_read;
+      current.cache_write += model.cache_write;
+      current.reasoning += model.reasoning;
+      current.total = current.input + current.output + current.cache_read + current.cache_write;
+      byModel.set(model.model, current);
+    }
+  }
+
+  if (!found) return undefined;
+  total.total = total.input + total.output + total.cache_read + total.cache_write;
+  return {
+    ...total,
+    ...(completeModelData
+      ? {
+          by_model: [...byModel.entries()]
+            .map(([model, counters]) => ({ model, ...counters }))
+            .sort((a, b) => b.total - a.total || a.model.localeCompare(b.model)),
+        }
+      : {}),
+  };
+}
+
+function providerTotals(projects: ClockworkProject[], includeTokens: boolean): ProviderTotals {
+  const tokens = includeTokens ? sumTokenUsage(projects.map((p) => p.tokens)) : undefined;
+  return {
+    projects: projects.length,
+    minutes: projects.reduce((sum, p) => sum + p.totals.minutes, 0),
+    prompts: projects.reduce((sum, p) => sum + p.totals.prompts, 0),
+    sessions: projects.reduce((sum, p) => sum + p.totals.sessions, 0),
+    ...(tokens ? { tokens } : {}),
+  };
+}
+
+/** Rebuild every grand-total layer from the surviving project entries. */
+function grandTotals(projects: ClockworkProject[], includeTokens = true): ClockworkGrandTotals {
+  const totals = providerTotals(projects, includeTokens);
+  const groups = new Map<string, ClockworkProject[]>();
+  for (const project of projects) {
+    if (!project.provider) continue;
+    const group = groups.get(project.provider) ?? [];
+    group.push(project);
+    groups.set(project.provider, group);
+  }
+  const byProvider = Object.fromEntries(
+    [...groups.entries()].map(([provider, entries]) => [
+      provider,
+      providerTotals(entries, includeTokens),
+    ]),
+  );
+  return {
+    ...totals,
+    ...(groups.size ? { by_provider: byProvider } : {}),
+  };
+}
+
 /**
  * Distinct providers present in an export, in a stable display order.
  * Prefers the top-level `providers[]` (clockwork/v2); otherwise derives the set
@@ -244,12 +347,7 @@ export function filterByProvider(data: ClockworkExport, provider: string): Clock
     provider,
     providers: [provider],
     projects,
-    totals: {
-      projects: projects.length,
-      minutes: projects.reduce((s, p) => s + p.totals.minutes, 0),
-      prompts: projects.reduce((s, p) => s + p.totals.prompts, 0),
-      sessions: projects.reduce((s, p) => s + p.totals.sessions, 0),
-    },
+    totals: grandTotals(projects),
   };
 }
 
@@ -279,6 +377,17 @@ export function hasSessionData(data: ClockworkExport): boolean {
   return data.projects.some((p) => p.sessions && p.sessions.length > 0);
 }
 
+/** True only when this view carries an actual token block; absent is not zero. */
+export function hasTokenData(data: ClockworkExport): boolean {
+  return data.tokens === true && data.totals.tokens !== undefined;
+}
+
+function withoutProjectTokens(project: ClockworkProject): ClockworkProject {
+  const { tokens: _tokens, ...rest } = project;
+  const daily = project.daily?.map(({ tokens: _dayTokens, ...day }) => day);
+  return { ...rest, ...(daily ? { daily } : {}) };
+}
+
 /**
  * Return a copy of the export keeping only sessions ≥ minMinutes long.
  * Per-project totals and daily entries are rebuilt from the surviving sessions.
@@ -291,7 +400,7 @@ export function filterByMinSession(
 ): ClockworkExport {
   if (minMinutes <= 0) return data;
 
-  const projects = data.projects.flatMap((p) => {
+  const projects = data.projects.flatMap<ClockworkProject>((p) => {
     if (!p.sessions || p.sessions.length === 0) return [p];
 
     const sessions = p.sessions.filter((s) => s.minutes >= minMinutes);
@@ -327,17 +436,12 @@ export function filterByMinSession(
         },
       },
     ];
-  });
+  }).map(withoutProjectTokens);
 
   return {
     ...data,
     projects,
-    totals: {
-      projects: projects.length,
-      minutes: projects.reduce((s, p) => s + p.totals.minutes, 0),
-      prompts: projects.reduce((s, p) => s + p.totals.prompts, 0),
-      sessions: projects.reduce((s, p) => s + p.totals.sessions, 0),
-    },
+    totals: grandTotals(projects, false),
   };
 }
 
@@ -368,6 +472,7 @@ export function filterExport(
     const prompts = p.prompts?.filter((ts) =>
       inRange(Math.floor(ts / 86400)),
     );
+    const tokens = sumTokenUsage(daily.map((d) => d.tokens));
 
     return [
       {
@@ -375,6 +480,7 @@ export function filterExport(
         daily,
         sessions,
         prompts,
+        tokens,
         totals: {
           ...p.totals,
           minutes: filteredMinutes,
@@ -389,11 +495,6 @@ export function filterExport(
   return {
     ...data,
     projects,
-    totals: {
-      projects: projects.length,
-      minutes: projects.reduce((s, p) => s + p.totals.minutes, 0),
-      prompts: projects.reduce((s, p) => s + p.totals.prompts, 0),
-      sessions: projects.reduce((s, p) => s + p.totals.sessions, 0),
-    },
+    totals: grandTotals(projects),
   };
 }

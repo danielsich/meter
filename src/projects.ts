@@ -12,8 +12,9 @@ import {
   formatMinutes,
   formatNumber,
   formatTick,
+  formatTokens,
 } from './display';
-import { projectRange } from './stats';
+import { projectRange, sumTokenUsage } from './stats';
 import { escapeHtml } from './validate';
 
 /**
@@ -41,6 +42,7 @@ function drillContent(
   projectCompare?: ClockworkProject | null,
   providerA?: string,
   providerB?: string,
+  showTokens = true,
 ): string {
   const range = projectRange(project);
   const stat = (label: string, value: string) =>
@@ -50,6 +52,21 @@ function drillContent(
     project.totals.minutes > 0
       ? (project.totals.prompts / project.totals.minutes).toFixed(1)
       : 'not available';
+  const tokenUsage = showTokens
+    ? sumTokenUsage([project.tokens, projectCompare?.tokens])
+    : undefined;
+  const cacheBase = tokenUsage ? tokenUsage.input + tokenUsage.cache_read : 0;
+  const tokenStats = tokenUsage
+    ? `${stat('tokens', formatTokens(tokenUsage.total))}
+      ${stat(
+        'tokens / response',
+        tokenUsage.responses > 0 ? formatTokens(tokenUsage.total / tokenUsage.responses) : 'not available',
+      )}
+      ${stat(
+        'cache reuse',
+        cacheBase > 0 ? `${((tokenUsage.cache_read / cacheBase) * 100).toFixed(1)}%` : 'not available',
+      )}`
+    : '';
 
   const splitStat = projectCompare
     ? `<div class="ds ds-split">
@@ -68,6 +85,7 @@ function drillContent(
       ${stat('active days', formatNumber(project.totals.active_days))}
       ${stat('sessions', formatNumber(project.totals.sessions))}
       ${stat('prompts / min', promptsPerMinute)}
+      ${tokenStats}
       ${range.first !== undefined ? stat('first', formatDate(range.first)) : ''}
       ${range.last !== undefined ? stat('last', formatDate(range.last)) : ''}
     </div>`;
@@ -75,8 +93,10 @@ function drillContent(
   const copyButton = `<button class="copy-link" data-copy-link="${escapeHtml(project.id)}" type="button" title="Copy link to this project">${LINK_ICON}<span class="copy-label">Copy link</span></button>`;
 
   const hasDailyData = !!(project.daily && project.daily.length);
+  const hasDailyTokens = !!project.daily?.some((day) => day.tokens);
+  const dailyMetric = metric === 'tokens' && !hasDailyTokens ? 'minutes' : metric;
   const days = hasDailyData
-    ? dayBarsHTML(project.daily!, metric, daySort)
+    ? dayBarsHTML(project.daily!, dailyMetric, daySort)
     : `<p class="hint">This export has no daily breakdown. Use <code>--detail daily</code> or richer.</p>`;
 
   const heat =
@@ -84,7 +104,9 @@ function drillContent(
       ? `<div class="heat-wrap"><h4>Hour of day</h4>${heatmapHTML(project.prompts)}</div>`
       : `<p class="hint">Export with <code>--detail raw</code> to see hourly activity.</p>`;
 
-  const dayToggle = hasDailyData ? dayBarsToggleHTML(metric, daySort) : '';
+  const dayToggle = hasDailyData
+    ? dayBarsToggleHTML(dailyMetric, daySort, hasDailyTokens)
+    : '';
 
   return `
     <div class="drill-header">${copyButton}</div>
@@ -174,6 +196,7 @@ export function renderProjects(
     name: string;
     totalMinutes: number;
     totalPrompts: number;
+    totalTokens?: number;
     minutesA: number;
     minutesB: number;
     project: ClockworkProject;
@@ -192,6 +215,10 @@ export function renderProjects(
       name: row.name,
       totalMinutes: row.minutesA + row.minutesB,
       totalPrompts: row.promptsA + row.promptsB,
+      totalTokens:
+        row.projectA?.tokens || row.projectB?.tokens
+          ? (row.projectA?.tokens?.total ?? 0) + (row.projectB?.tokens?.total ?? 0)
+          : undefined,
       minutesA: row.minutesA,
       minutesB: row.minutesB,
       project: (row.projectA ?? row.projectB)!,
@@ -213,6 +240,7 @@ export function renderProjects(
       name: project.name,
       totalMinutes: project.totals.minutes,
       totalPrompts: project.totals.prompts,
+      totalTokens: project.tokens?.total,
       minutesA: project.totals.minutes,
       minutesB: 0,
       project,
@@ -233,6 +261,9 @@ export function renderProjects(
 
   const providerA = data.provider;
   const providerB = compare?.provider ?? '';
+  const showTokens = isSplit
+    ? data.totals.tokens !== undefined && compare?.totals.tokens !== undefined
+    : rows.some((row) => row.totalTokens !== undefined);
 
   const rowsHTML = rows
     .map((row, index) => {
@@ -266,6 +297,7 @@ export function renderProjects(
         isSplit ? row.projectB : null,
         providerA,
         providerB,
+        showTokens,
       );
 
       return `
@@ -276,6 +308,7 @@ export function renderProjects(
           ${nameHTML}
           <span class="reading">${formatMinutes(row.totalMinutes)}</span>
           <span class="pcount">${formatNumber(row.totalPrompts)}<span class="unit">prompts</span></span>
+          ${showTokens ? `<span class="tcount">${formatTokens(row.totalTokens ?? 0)}<span class="unit">tokens</span></span>` : ''}
           ${CHEVRON}
         </button>
         <div class="drill" id="drill-${index}" role="region" aria-hidden="true">
@@ -289,7 +322,7 @@ export function renderProjects(
     <div class="scale" aria-hidden="true">${scale}</div>
     <div class="chart">
       <div class="graticule" aria-hidden="true">${grid}</div>
-      <ol class="rows${isSplit ? ' rows--split' : ''}">${rowsHTML}</ol>
+      <ol class="rows${isSplit ? ' rows--split' : ''}${showTokens ? ' rows--tokens' : ''}">${rowsHTML}</ol>
     </div>`;
 
   wireDrilldowns(meter);

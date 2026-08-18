@@ -1,7 +1,7 @@
 {
   "name": "meter",
   "version": "1.0.0",
-  "description": "Static dashboard for the clockwork CLI (schema clockwork/v1).",
+  "description": "Static dashboard for clockwork/v1, v2, and v3 CLI exports.",
   "private": true,
   "type": "module",
   "scripts": {

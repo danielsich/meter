@@ -1,10 +1,11 @@
-import type { ClockworkExport, DailyEntry, SessionEntry } from './clockwork';
+import type { ClockworkExport, DailyEntry, SessionEntry, TokenUsage } from './clockwork';
 import {
   buildScale,
   formatDayLabel,
   formatMinutes,
   formatNumber,
   formatTick,
+  formatTokens,
   shortDate,
 } from './display';
 import {
@@ -16,10 +17,11 @@ import {
   hourHistogram,
   hourLevel,
   sortedDaily,
+  sumTokenUsage,
 } from './stats';
 import { escapeHtml } from './validate';
 
-export type ChartMetric = 'minutes' | 'prompts';
+export type ChartMetric = 'minutes' | 'prompts' | 'tokens';
 export type DaySort = 'date' | 'asc' | 'desc';
 
 /** 24-cell hour-of-day heatmap from a prompt-timestamp list. */
@@ -67,7 +69,8 @@ function contributionHTML(data: ClockworkExport): string {
 function sessionRhythmHTML(sessions: SessionEntry[], metric: ChartMetric): string {
   if (!sessions.length) return '';
 
-  const usePrompts = metric === 'prompts';
+  const sessionMetric = metric === 'tokens' ? 'minutes' : metric;
+  const usePrompts = sessionMetric === 'prompts';
   const yVal = (session: SessionEntry) => usePrompts ? session.prompts : session.minutes;
   // Iterate rather than spread: `Math.max(...bigArray)` overflows the call
   // stack on very large session lists.
@@ -136,7 +139,7 @@ function sessionRhythmHTML(sessions: SessionEntry[], metric: ChartMetric): strin
     : 'Each dot is a session. Its position shows the start time and duration.';
 
   const toggle = (value: ChartMetric, label: string) =>
-    `<button class="toggle-btn${metric === value ? ' active' : ''}" data-metric="${value}" type="button">${label}</button>`;
+    `<button class="toggle-btn${sessionMetric === value ? ' active' : ''}" data-metric="${value}" type="button">${label}</button>`;
 
   return `
     <div class="scatter-wrap card">
@@ -163,7 +166,9 @@ export function dayBarsHTML(
 ): string {
   const byDate = sortedDaily(daily);
   const usePrompts = metric === 'prompts';
-  const valueOf = (day: DailyEntry) => usePrompts ? day.prompts : day.minutes;
+  const useTokens = metric === 'tokens';
+  const valueOf = (day: DailyEntry) =>
+    useTokens ? (day.tokens?.total ?? 0) : usePrompts ? day.prompts : day.minutes;
   const days =
     daySort === 'asc' ? [...byDate].sort((a, b) => valueOf(a) - valueOf(b)) :
     daySort === 'desc' ? [...byDate].sort((a, b) => valueOf(b) - valueOf(a)) :
@@ -176,10 +181,14 @@ export function dayBarsHTML(
   const rows = days
     .map((day) => {
       const width = ((valueOf(day) / max) * 100).toFixed(1);
-      const primary = usePrompts
+      const primary = useTokens
+        ? `${formatTokens(day.tokens?.total ?? 0)}<span class="unit">tok</span>`
+        : usePrompts
         ? `${formatNumber(day.prompts)}<span class="unit">p</span>`
         : formatMinutes(day.minutes);
-      const secondary = usePrompts
+      const secondary = useTokens
+        ? `${formatNumber(day.tokens?.responses ?? 0)}<span class="unit">r</span>`
+        : usePrompts
         ? formatMinutes(day.minutes)
         : `${formatNumber(day.prompts)}<span class="unit">p</span>`;
       return `
@@ -194,7 +203,11 @@ export function dayBarsHTML(
   return `<div class="daybars">${rows}</div>`;
 }
 
-export function dayBarsToggleHTML(metric: ChartMetric, daySort: DaySort): string {
+export function dayBarsToggleHTML(
+  metric: ChartMetric,
+  daySort: DaySort,
+  hasTokens: boolean,
+): string {
   const metricButton = (value: ChartMetric, label: string) =>
     `<button class="toggle-btn${metric === value ? ' active' : ''}" data-metric="${value}" type="button">${label}</button>`;
   const sortButton = (value: Exclude<DaySort, 'date'>, label: string) =>
@@ -202,12 +215,79 @@ export function dayBarsToggleHTML(metric: ChartMetric, daySort: DaySort): string
   return `
     <div class="chart-controls">
       <div class="chart-toggle" role="group" aria-label="Y axis metric">
-        ${metricButton('minutes', 'time')}${metricButton('prompts', 'prompts')}
+        ${metricButton('minutes', 'time')}${metricButton('prompts', 'prompts')}${hasTokens ? metricButton('tokens', 'tokens') : ''}
       </div>
       <div class="chart-toggle" role="group" aria-label="Sort order">
         ${sortButton('asc', '↑')}${sortButton('desc', '↓')}
       </div>
     </div>`;
+}
+
+function tokenField(label: string, value: number): string {
+  return `<div class="token-field"><span>${escapeHtml(label)}</span><strong>${formatTokens(value)}</strong></div>`;
+}
+
+/** Model mix plus a separate cache-efficiency signal, avoiding an unreadable stack. */
+export function renderTokenUsage(
+  container: HTMLElement | null,
+  data: ClockworkExport,
+  compare: ClockworkExport | null = null,
+): void {
+  if (!container) return;
+
+  const primary = data.totals.tokens;
+  const secondary = compare?.totals.tokens;
+  if (!primary || (compare && !secondary)) {
+    const filtered =
+      (data.tokens === true && !primary) ||
+      (compare?.tokens === true && !secondary);
+    container.innerHTML = `<div class="hint card">${
+      filtered
+        ? 'Token usage is hidden because tokens cannot be attributed to individual sessions. Choose <strong>All</strong> under min session to restore it.'
+        : 'Export with <code>--tokens</code> to see model usage.'
+    }</div>`;
+    return;
+  }
+
+  const usage = sumTokenUsage([primary, secondary]) as TokenUsage;
+  const reusableInput = usage.input + usage.cache_read;
+  const cachePct = reusableInput > 0 ? (usage.cache_read / reusableInput) * 100 : 0;
+  const freshPct = 100 - cachePct;
+  const perResponse = usage.responses > 0 ? usage.total / usage.responses : 0;
+  const fields = [
+    tokenField('fresh input', usage.input),
+    tokenField('output', usage.output),
+    tokenField('cache read', usage.cache_read),
+    usage.cache_write > 0 ? tokenField('cache write', usage.cache_write) : '',
+    usage.reasoning > 0 ? tokenField('reasoning · in output', usage.reasoning) : '',
+  ].join('');
+  const modelUsage = usage.by_model ?? [];
+  const maxModel = modelUsage[0]?.total ?? 1;
+  const models = modelUsage
+    .map((model) => {
+      const width = Math.min(100, (model.total / maxModel) * 100).toFixed(1);
+      return `<div class="model-row">
+        <span class="model-name" title="${escapeHtml(model.model)}">${escapeHtml(model.model)}</span>
+        <span class="model-track"><span style="width:${width}%"></span></span>
+        <strong>${formatTokens(model.total)}</strong>
+        <small>${formatNumber(model.responses)} responses</small>
+      </div>`;
+    })
+    .join('');
+  const modelList = models || `<p class="model-note">This export has no per-day model breakdown for the selected date range.</p>`;
+
+  container.innerHTML = `<div class="token-card card">
+    <div class="token-head">
+      <div><span class="token-kicker">Model usage</span><strong>${formatTokens(usage.total)}</strong><small>${formatNumber(usage.responses)} responses · ${formatTokens(perResponse)} tokens / response</small></div>
+      <div class="cache-score"><strong>${cachePct.toFixed(1)}%</strong><span>cache reuse</span></div>
+    </div>
+    <div class="cache-rail" title="Fresh input ${formatTokens(usage.input)} · cache read ${formatTokens(usage.cache_read)}">
+      <span class="cache-fresh" style="width:${freshPct.toFixed(3)}%"></span><span class="cache-read" style="width:${cachePct.toFixed(3)}%"></span>
+    </div>
+    <div class="cache-legend"><span><i class="fresh-dot"></i>fresh input</span><span><i class="cache-dot"></i>cache read</span></div>
+    <div class="token-fields">${fields}</div>
+    <div class="model-list" aria-label="Token usage by model">${modelList}</div>
+  </div>`;
 }
 
 /** Activity summary: streaks, calendar, and the global hour heatmap. */
