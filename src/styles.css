@@ -1524,6 +1524,22 @@ body.dragging .dropzone {
   opacity: 0.7;
 }
 
+.footer-legal {
+  max-width: 52rem;
+  margin: 0.55rem auto 0;
+  padding-top: 0.95rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  font-family: var(--display);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  opacity: 0.82;
+}
+
+.footer-legal strong {
+  color: var(--paper);
+  font-weight: 600;
+}
+
 .site-footer a {
   color: var(--brass-hi);
   text-decoration: none;

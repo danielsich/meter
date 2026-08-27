@@ -60,4 +60,6 @@ handle any health/medical information, revisit before shipping:
 
 Re-run the compliance review before adding: analytics, embeds, payments,
 advertising, sponsors, user accounts, real published activity data, cookies or
-other device storage, or any consumer-facing service.
+other device storage, any consumer-facing service, third-party logos, or a third
+party's name in the meter product name. Review the current Anthropic and OpenAI
+brand guidance before changing how their company or product names appear.
